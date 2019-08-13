@@ -21,7 +21,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "string.h"
+#include "message.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -662,58 +662,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-uint32_t reverse_32(uint32_t data)
-{
-	asm("rbit r0,r0");
-	return data;
-}
-;
-uint32_t crc32_ether(char *buf, int len, int clear)
-{
-	uint32_t *p = (uint32_t*) buf;
-	uint32_t crc, crc_reg, buff;
-	if (clear)
-		__HAL_CRC_DR_RESET(&hcrc);
-	if (len >= 4)
-	{
-		while (len >= 4)
-		{
-			buff = reverse_32(*p++);
-			crc_reg = HAL_CRC_Accumulate(&hcrc, &buff, sizeof(buff));
-			len -= 4;
-		}
-	}
-	else
-	{
-		crc = 0xFFFFFFFF;
-		buff = 0xEBABAB;
-		crc_reg = HAL_CRC_Accumulate(&hcrc, &buff, sizeof(buff));
-	}
-	crc = reverse_32(crc_reg);
-	if (len)
-	{
-		HAL_CRC_Accumulate(&hcrc, &crc_reg, sizeof(crc_reg));
-		switch (len)
-		{
-		case 1:
-			buff=reverse_32((*p & 0xFF) ^ crc) >> 24;
-			crc_reg = HAL_CRC_Accumulate(&hcrc, &buff, sizeof(buff));
-			crc = (crc >> 8) ^ reverse_32(crc_reg);
-			break;
-		case 2:
-			buff=reverse_32((*p & 0xFFFF) ^ crc) >> 16;
-			crc_reg = HAL_CRC_Accumulate(&hcrc, &buff, sizeof(buff));
-			crc = (crc >> 16) ^ reverse_32(crc_reg);
-			break;
-		case 3:
-			buff = reverse_32((*p & 0xFFFFFF) ^ crc) >> 8;
-			crc_reg = HAL_CRC_Accumulate(&hcrc, &buff, sizeof(buff));
-			crc = (crc >> 24) ^ reverse_32(crc_reg);
-			break;
-		}
-	}
-	return ~crc;
-}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartLinesControlTask */
@@ -725,11 +674,17 @@ uint32_t crc32_ether(char *buf, int len, int clear)
 /* USER CODE END Header_StartLinesControlTask */
 void StartLinesControlTask(void *argument)
 {
-	char* num = "12345678";
-	uint8_t len = strlen(num);
-	uint32_t crc = 0;
-	crc = crc32_ether(num, len, 1);
 	/* USER CODE BEGIN 5 */
+	uint8_t frame[32]={0};
+	uint8_t idArray[]={1,3,5,6,12};
+	uint16_t dataArray[12]={0};
+	dataArray[0]=100;
+	dataArray[1]=1;
+	dataArray[2]=0;
+	dataArray[3]=900;
+	dataArray[4]=1900;
+	uint16_t idU16=idArrayToU16(idArray, sizeof(idArray));
+	messageToFrame(0x0001, idU16, dataArray, frame);
 	/* Infinite loop */
 	for (;;)
 	{

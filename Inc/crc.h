@@ -9,6 +9,6 @@
 #ifndef CRC_H_
 #define CRC_H_
 
-
+uint32_t crc32_zlib(const uint32_t *data, size_t cnt);
 
 #endif /* CRC_H_ */
