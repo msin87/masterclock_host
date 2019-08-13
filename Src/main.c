@@ -675,16 +675,6 @@ static void MX_GPIO_Init(void)
 void StartLinesControlTask(void *argument)
 {
 	/* USER CODE BEGIN 5 */
-	uint8_t frame[32]={0};
-	uint8_t idArray[]={1,3,5,6,12};
-	uint16_t dataArray[12]={0};
-	dataArray[0]=100;
-	dataArray[1]=1;
-	dataArray[2]=0;
-	dataArray[3]=900;
-	dataArray[4]=1900;
-	uint16_t idU16=idArrayToU16(idArray, sizeof(idArray));
-	messageToFrame(0x0001, idU16, dataArray, frame);
 	/* Infinite loop */
 	for (;;)
 	{
