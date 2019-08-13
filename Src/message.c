@@ -7,11 +7,13 @@
  */
 #include "message.h"
 #include "crc.h"
+uint8_t uartDataFrame[32]={0};
 uint16_t idArrayToU16(uint8_t* idArray, uint8_t size)
 {
 	uint16_t result = 0;
 	for (uint8_t i = 0; i < size; i++)
 	{
+		if (idArray[i]==0xFF) continue;
 		result |= 1 << idArray[i];
 	}
 	return result;
@@ -20,28 +22,42 @@ void u16ArrayToU8(uint16_t* u16Array, uint8_t size, uint8_t* u8Array)
 {
 	for (uint8_t i = 0; i < size; i++)
 	{
+
 		u8Array[2 * i] = u16Array[i] / 0x0100;
 		u8Array[2 * i + 1] = u16Array[i] % 0x0100;
 	}
 }
-void messageToFrame(uint16_t cmd, uint16_t id, uint16_t* dataArray,
-		uint8_t* frame)
+void messageInit(Message* message)
 {
-	uint32_t crc32 = 0;
-	frame[0] = cmd / 0x0100;
-	frame[1] = cmd % 0x0100;
+	message->cmd = 0;
+	for (uint8_t i = 0; i < sizeof(message->idArray); i++)
+	{
+		message->idArray[i] = 0xFF;
+	}
+	for (uint8_t i = 0; i < sizeof(message->dataArray); i++)
+	{
+		message->dataArray[i] = 0;
+	}
+
+}
+void messageToFrame(Message* message, uint8_t* frame)
+{
+	uint32_t crc32;
+	uint16_t id = idArrayToU16(message->idArray, 12);
+	frame[0] = message->cmd / 0x0100;
+	frame[1] = message->cmd % 0x0100;
 	frame[2] = id / 0x0100;
 	frame[3] = id % 0x0100;
 	for (uint8_t i = 0; i < 12; i++)
 	{
-		frame[4 + i * 2] = dataArray[i] / 0x100;
-		frame[4 + i * 2 + 1] = dataArray[i] % 0x100;
+		frame[4 + i * 2] = message->dataArray[i] / 0x100;
+		frame[4 + i * 2 + 1] = message->dataArray[i] % 0x100;
 	}
-	crc32 = crc32_zlib((uint32_t*)frame, 28);
-	frame[28]=(crc32& 0xFF000000) >> 24;
-	frame[29]=(crc32& 0x00FF0000) >> 16;
-	frame[30]=(crc32& 0x0000FF00) >> 8;
-	frame[31]=(crc32& 0x000000FF);
+	crc32 = crc32_zlib((uint32_t*) frame, 28);
+	frame[28] = (crc32 & 0xFF000000) >> 24;
+	frame[29] = (crc32 & 0x00FF0000) >> 16;
+	frame[30] = (crc32 & 0x0000FF00) >> 8;
+	frame[31] = (crc32 & 0x000000FF);
 }
 
 void getFrameData16(uint8_t* frame, uint16_t* data)
@@ -57,4 +73,30 @@ void getFrameData8(uint8_t* frame, uint8_t* data)
 	{
 		data[i] = frame[3 + i];
 	}
+}
+
+uint8_t isFrameCrcOk(uint8_t* frame)
+{
+	uint32_t crc32Computed = crc32_zlib((uint32_t*) frame, 28);
+	uint32_t crc32Income = frame[28] << 24 | frame[29] << 16 | frame[30] << 8
+			| frame[31];
+	return crc32Computed == crc32Income;
+}
+void frameToMessage(uint8_t* frame, Message* message)
+{
+	uint16_t idU16 = frame[2] << 8 | frame[3]; //Concatenate ID bytes in frame to uint16_t
+	message->cmd = frame[0] << 8 | frame[1];//Concatenate CMD bytes in frame to uint16_t
+	for (uint8_t i = 0, j = 0; i < 16; i++)	//Parse ID in uint16_t to idArray
+	{
+		if ((1 << i) & idU16)
+		{
+			message->idArray[j] = i;			//Store after last added element
+			j++;
+		}
+	}
+	for (uint8_t i = 0; i < 12; i++)	//Parse data bytes in frame to uint16_t dataArray
+	{
+		message->dataArray[i] = frame[4 + i * 2] << 8 | frame[5 + i * 2];
+	}
+
 }
