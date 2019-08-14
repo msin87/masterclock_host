@@ -690,26 +690,26 @@ void StartLinesControlTask(void *argument)
 	for (;;)
 	{
 		if (!clockLines_isCountersEmpty){
-		            for (uint8_t id=0,j=0; id<CLOCKLINES_TOTAL; id++)
-		            {
-		                if (clockLines[id].counter)
-		                {
-		                    clockLines[id].polarity=!clockLines[id].polarity;
-		                    clockLines[id].counter--;
-		                    clockLines_isCountersEmpty=!clockLines[id].counter;
-		                    idToPulse[j]=(int8_t)id;
-		                    j++;
-		                }
-		            }
-		            if(idToPulse[0]>=0)
-		            {
-		                sendPulse(clockLines,idToPulse,CLOCKLINES_TOTAL, &LinesGPIO);
-		                osDelay(clockLines_pulseWidth);
-		                stopPulse(&LinesGPIO);
-		                osDelay(DEATH_TIME);
-		                resetLinesToPulse(idToPulse);
-		            }
-		        }
+			for (uint8_t id=0,j=0; id<CLOCKLINES_TOTAL; id++)
+			{
+				if (clockLines[id].counter)
+				{
+					clockLines[id].polarity=!clockLines[id].polarity;
+					clockLines[id].counter--;
+					clockLines_isCountersEmpty=!clockLines[id].counter;
+					idToPulse[j]=(int8_t)id;
+					j++;
+				}
+			}
+			if(idToPulse[0]>=0)
+			{
+				sendPulse(clockLines,idToPulse,CLOCKLINES_TOTAL, &LinesGPIO);
+				osDelay(clockLines_pulseWidth);
+				stopPulse(&LinesGPIO);
+				osDelay(DEATH_TIME);
+				resetLinesToPulse(idToPulse);
+			}
+		}
 
 	}
   /* USER CODE END 5 */ 
