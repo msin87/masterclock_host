@@ -25,13 +25,15 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "message.h"
+#include "clocklines.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
 extern uint8_t uartDataFrame[32];
-
+extern uint16_t clockLines_pulseWidth;
+extern uint8_t clockLines_isCountersEmpty;
 
 /* USER CODE END PTD */
 
@@ -682,15 +684,32 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 void StartLinesControlTask(void *argument)
 {
     
-    
-    
-    
-
   /* USER CODE BEGIN 5 */
+	int8_t idToPulse[CLOCKLINES_TOTAL];
 	/* Infinite loop */
 	for (;;)
 	{
-		osDelay(1);
+		if (!clockLines_isCountersEmpty){
+		            for (uint8_t id=0,j=0; id<CLOCKLINES_TOTAL; id++)
+		            {
+		                if (clockLines[id].counter)
+		                {
+		                    clockLines[id].polarity=!clockLines[id].polarity;
+		                    clockLines[id].counter--;
+		                    clockLines_isCountersEmpty=!clockLines[id].counter;
+		                    idToPulse[j]=(int8_t)id;
+		                    j++;
+		                }
+		            }
+		            if(idToPulse[0]>=0)
+		            {
+		                sendPulse(clockLines,idToPulse,CLOCKLINES_TOTAL, &LinesGPIO);
+		                osDelay(clockLines_pulseWidth);
+		                stopPulse(&LinesGPIO);
+		                osDelay(DEATH_TIME);
+		                resetLinesToPulse(idToPulse);
+		            }
+		        }
 
 	}
   /* USER CODE END 5 */ 
