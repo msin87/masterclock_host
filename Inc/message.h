@@ -1,6 +1,13 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 #include "stm32f4xx_hal.h"
+#define CMD_START	 		0x0000
+#define CMD_CNT_SET 		0x0001
+#define CMD_CNT_INCREASE 	0x0002
+#define CMD_CNT_RESET 		0x0003
+#define CMD_CNT_SUSPEND 	0x0004
+#define CMD_CNT_RESUME 		0x0005
+#define CMD_PULSE_WIDTH 	0x0006
 typedef struct
 {
 	uint16_t cmd;

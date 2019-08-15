@@ -7,6 +7,7 @@
  */
 
 #include "clocklines.h"
+#include "message.h"
 uint16_t clockLines_pulseWidth=1000;
 uint8_t clockLines_isCountersEmpty=0;
 LinesGPIO_TypeDef LinesGPIO={.Positive=GPIOE,.Negative=GPIOD};
@@ -35,4 +36,10 @@ void resetLinesToPulse(int8_t* linesToPulse){
     for (uint8_t i=0; i<CLOCKLINES_TOTAL; i++){
         linesToPulse[i]=-1;
     }
+}
+void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines, int8_t* idToSend){
+	Message message;
+	messageInit(&message);
+	message.cmd=CMD_CNT_SET;
+
 }

@@ -7,13 +7,6 @@
  */
 #include "uartcmd.h"
 #include "message.h"
-#define CMD_START	 		0x0000
-#define CMD_CNT_SET 		0x0001
-#define CMD_CNT_INCREASE 	0x0002
-#define CMD_CNT_RESET 		0x0003
-#define CMD_CNT_SUSPEND 	0x0004
-#define CMD_CNT_RESUME 		0x0005
-#define CMD_PULSE_WIDTH 	0x0006
 extern void messageInit(Message* message);
 extern void messageToFrame(Message* message, uint8_t* frame);
 extern void frameToMessage(uint8_t* frame, Message* message);

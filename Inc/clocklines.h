@@ -29,4 +29,5 @@ LinesGPIO_TypeDef LinesGPIO;
 void sendPulse(ClockLine*,int8_t*,uint8_t, LinesGPIO_TypeDef*);
 void stopPulse(LinesGPIO_TypeDef*);
 void resetLinesToPulse(int8_t*);
+void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines, int8_t* idToSend);
 #endif /* CLOCKLINES_H_ */
