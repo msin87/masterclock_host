@@ -705,7 +705,6 @@ void StartLinesControlTask(void *argument)
 			{
 				sendPulse(clockLines,idToPulse,CLOCKLINES_TOTAL, &LinesGPIO);
 				sendCountersToUART(&huart4, clockLines, idToPulse);
-				//startCurrentSense(idToPulse);
 				osDelay(clockLines_pulseWidth);
 				stopPulse(&LinesGPIO);
 				osDelay(DEATH_TIME);

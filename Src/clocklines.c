@@ -37,9 +37,19 @@ void resetLinesToPulse(int8_t* linesToPulse){
         linesToPulse[i]=-1;
     }
 }
+
 void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines, int8_t* idToSend){
 	Message message;
+	uint8_t frame[32]={0};
+	uint8_t j=0;
 	messageInit(&message);
 	message.cmd=CMD_CNT_SET;
-
+	for (uin8_t i=0; i<12; i++){
+		if (idToSend[i]<0) break;
+		message.dataArray[j]=clockLines[idToSend[i]].counter;
+		j++;
+	}
+	message.idArray=idToSend;
+	messageToFrame(&message, frame);
+	HAL_UART_Transmit(huart, frame, j, 100);
 }

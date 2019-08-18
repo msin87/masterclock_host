@@ -8,12 +8,12 @@
 #include "message.h"
 #include "crc.h"
 uint8_t uartDataFrame[32]={0};
-uint16_t idArrayToU16(uint8_t* idArray, uint8_t size)
+uint16_t idArrayToU16(int8_t* idArray)
 {
 	uint16_t result = 0;
-	for (uint8_t i = 0; i < size; i++)
+	for (uint8_t i = 0; i < 12; i++)
 	{
-		if (idArray[i]==0xFF) continue;
+		if (idArray[i]<0) continue;
 		result |= 1 << idArray[i];
 	}
 	return result;
@@ -32,7 +32,7 @@ void messageInit(Message* message)
 	message->cmd = 0;
 	for (uint8_t i = 0; i < sizeof(message->idArray); i++)
 	{
-		message->idArray[i] = 0xFF;
+		message->idArray[i] = -1;
 	}
 	for (uint8_t i = 0; i < sizeof(message->dataArray); i++)
 	{
@@ -43,7 +43,7 @@ void messageInit(Message* message)
 void messageToFrame(Message* message, uint8_t* frame)
 {
 	uint32_t crc32;
-	uint16_t id = idArrayToU16(message->idArray, 12);
+	uint16_t id = idArrayToU16(message->idArray);
 	frame[0] = message->cmd / 0x0100;
 	frame[1] = message->cmd % 0x0100;
 	frame[2] = id / 0x0100;
@@ -98,5 +98,4 @@ void frameToMessage(uint8_t* frame, Message* message)
 	{
 		message->dataArray[i] = frame[4 + i * 2] << 8 | frame[5 + i * 2];
 	}
-
 }
