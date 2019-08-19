@@ -8,7 +8,7 @@
 
 #ifndef UARTCMD_H_
 #define UARTCMD_H_
-
-
+#include "message.h"
+void uartCmdParse(uint8_t* frame);
 
 #endif /* UARTCMD_H_ */

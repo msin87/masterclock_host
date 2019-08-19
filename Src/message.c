@@ -7,13 +7,15 @@
  */
 #include "message.h"
 #include "crc.h"
-uint8_t uartDataFrame[32]={0};
+uint8_t uartDataFrame[32] =
+{ 0 };
 uint16_t idArrayToU16(int8_t* idArray)
 {
 	uint16_t result = 0;
 	for (uint8_t i = 0; i < 12; i++)
 	{
-		if (idArray[i]<0) continue;
+		if (idArray[i] < 0)
+			continue;
 		result |= 1 << idArray[i];
 	}
 	return result;
@@ -30,12 +32,9 @@ void u16ArrayToU8(uint16_t* u16Array, uint8_t size, uint8_t* u8Array)
 void messageInit(Message* message)
 {
 	message->cmd = 0;
-	for (uint8_t i = 0; i < sizeof(message->idArray); i++)
+	for (uint8_t i = 0; i < 12; i++)
 	{
 		message->idArray[i] = -1;
-	}
-	for (uint8_t i = 0; i < sizeof(message->dataArray); i++)
-	{
 		message->dataArray[i] = 0;
 	}
 
@@ -85,7 +84,7 @@ uint8_t isFrameCrcOk(uint8_t* frame)
 void frameToMessage(uint8_t* frame, Message* message)
 {
 	uint16_t idU16 = frame[2] << 8 | frame[3]; //Concatenate ID bytes in frame to uint16_t
-	message->cmd = frame[0] << 8 | frame[1];//Concatenate CMD bytes in frame to uint16_t
+	message->cmd = frame[0] << 8 | frame[1]; //Concatenate CMD bytes in frame to uint16_t
 	for (uint8_t i = 0, j = 0; i < 16; i++)	//Parse ID in uint16_t to idArray
 	{
 		if ((1 << i) & idU16)
@@ -94,8 +93,29 @@ void frameToMessage(uint8_t* frame, Message* message)
 			j++;
 		}
 	}
-	for (uint8_t i = 0; i < 12; i++)	//Parse data bytes in frame to uint16_t dataArray
+	for (uint8_t i = 0; i < 12; i++)//Parse data bytes in frame to uint16_t dataArray
 	{
 		message->dataArray[i] = frame[4 + i * 2] << 8 | frame[5 + i * 2];
 	}
+}
+void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t CMD,
+		int8_t* idToSend)
+{
+	Message message;
+	uint8_t frame[32] =
+	{ 0 };
+	uint8_t j = 0;
+	messageInit(&message);
+	message.cmd = CMD;
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idToSend[i] < 0)
+			break;
+		message.dataArray[j] = (uint16_t)data[idToSend[i]];
+		j++;
+		message.idArray[i]= idToSend[i];
+	}
+
+	messageToFrame(&message, frame);
+	HAL_UART_Transmit(huart, frame, j, 100);
 }

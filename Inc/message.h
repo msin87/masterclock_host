@@ -8,6 +8,8 @@
 #define CMD_CNT_SUSPEND 	0x0004
 #define CMD_CNT_RESUME 		0x0005
 #define CMD_PULSE_WIDTH 	0x0006
+#define RESP_CNT			0x0001
+#define SENSOR_LINES		0x0002
 typedef struct
 {
 	uint16_t cmd;
@@ -23,5 +25,6 @@ uint16_t idArrayToU16(int8_t* idArray);
 void messageInit(Message* msg);
 uint8_t isFrameCrcOk(uint8_t* frame);
 uint8_t uartDataFrame[32];
-
+void sendMessageToUART(UART_HandleTypeDef* huart, uint16_t* data, uint16_t CMD,
+		int8_t* idToSend);
 #endif

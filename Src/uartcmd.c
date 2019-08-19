@@ -7,10 +7,7 @@
  */
 #include "uartcmd.h"
 #include "message.h"
-extern void messageInit(Message* message);
-extern void messageToFrame(Message* message, uint8_t* frame);
-extern void frameToMessage(uint8_t* frame, Message* message);
-extern uint8_t isFrameCrcOk(uint8_t* frame);
+#include "clocklines.h"
 
 void uartCmdParse(uint8_t* frame)
 {
@@ -25,8 +22,10 @@ void uartCmdParse(uint8_t* frame)
 			NVIC_SystemReset();
 			break;
 		case CMD_CNT_SET:
+			setCounters(message.idArray,message.dataArray);
 			break;
 		case CMD_CNT_INCREASE:
+			increaseCounters(message.idArray);
 			break;
 		case CMD_CNT_RESET:
 			break;

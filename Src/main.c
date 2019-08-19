@@ -26,6 +26,8 @@
 /* USER CODE BEGIN Includes */
 #include "message.h"
 #include "clocklines.h"
+#include "currentsensors.h"
+#include "uartcmd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,6 +36,8 @@
 extern uint8_t uartDataFrame[32];
 extern uint16_t clockLines_pulseWidth;
 extern uint8_t clockLines_isCountersEmpty;
+extern ClockLineCurrentSensor clockLineCurrentSensor;
+extern uint8_t CLOCKLINES_TOTAL;
 
 /* USER CODE END PTD */
 
@@ -51,6 +55,7 @@ extern uint8_t clockLines_isCountersEmpty;
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 ADC_HandleTypeDef hadc3;
+DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan1;
 
@@ -63,7 +68,6 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart4;
-DMA_HandleTypeDef hdma_uart4_rx;
 
 osThreadId_t linesControlTasHandle;
 osThreadId_t sensorsTaskHandle;
@@ -103,7 +107,7 @@ void StartSensorsTask(void *argument);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	CLOCKLINES_TOTAL=4;
   /* USER CODE END 1 */
   
 
@@ -136,7 +140,7 @@ int main(void)
   MX_SPI1_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_DMA(&huart4, uartDataFrame, sizeof(uartDataFrame));
+  HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
   /* USER CODE END 2 */
 
   osKernelInitialize();
@@ -257,15 +261,15 @@ static void MX_ADC1_Init(void)
   */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.Resolution = ADC_RESOLUTION_8B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.NbrOfConversion = 12;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -276,6 +280,94 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = 4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = 5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = 6;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = 7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Rank = 8;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = 9;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = 10;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 11;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = 12;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -598,12 +690,12 @@ static void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
 
@@ -670,7 +762,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
-
+	uartCmdParse(uartDataFrame);
 }
 /* USER CODE END 4 */
 
@@ -684,31 +776,39 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 void StartLinesControlTask(void *argument)
 {
     
+    
+    
+    
+
   /* USER CODE BEGIN 5 */
-	int8_t idToPulse[CLOCKLINES_TOTAL];
+	int8_t linesId[CLOCKLINES_TOTAL];
 	/* Infinite loop */
 	for (;;)
 	{
 		if (!clockLines_isCountersEmpty){
-			for (uint8_t id=0,j=0; id<CLOCKLINES_TOTAL; id++)
+			for (uint8_t id=0,j=0; id<12; id++)
 			{
 				if (clockLines[id].counter)
 				{
 					clockLines[id].polarity=!clockLines[id].polarity;
 					clockLines[id].counter--;
 					clockLines_isCountersEmpty=!clockLines[id].counter;
-					idToPulse[j]=(int8_t)id;
+					linesId[j]=(int8_t)id;
 					j++;
 				}
 			}
-			if(idToPulse[0]>=0)
+			if(linesId[0]>=0)
 			{
-				sendPulse(clockLines,idToPulse,CLOCKLINES_TOTAL, &LinesGPIO);
-				sendCountersToUART(&huart4, clockLines, idToPulse);
+				sendPulse(clockLines,linesId,CLOCKLINES_TOTAL, &LinesGPIO);
+				startClockLinesADC(&hadc1, &clockLineCurrentSensor, linesId);
+				sendCountersToUART(&huart4, clockLines, linesId);
 				osDelay(clockLines_pulseWidth);
+				HAL_ADC_Stop_DMA(&hadc1);
 				stopPulse(&LinesGPIO);
+				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, SENSOR_LINES, linesId);
+				resetClockLineCurrentSensor(&clockLineCurrentSensor);
 				osDelay(DEATH_TIME);
-				resetLinesToPulse(idToPulse);
+				resetLinesId(linesId);
 			}
 		}
 
