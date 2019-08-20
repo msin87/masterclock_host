@@ -67,10 +67,15 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart4;
 
-osThreadId_t linesControlTasHandle;
-osThreadId_t sensorsTaskHandle;
+osThreadId linesControlHandle;
+osThreadId lineSensorTaskHandle;
+osThreadId uartTaskHandle;
+osSemaphoreId uartSemaphoreHandle;
+osSemaphoreId lineSensorSemaphoreHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -88,8 +93,10 @@ static void MX_DAC_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
-void StartLinesControlTask(void *argument);
-void StartSensorsTask(void *argument);
+static void MX_TIM2_Init(void);
+void StartLinesControl(void const * argument);
+void StartLineSensorTask(void const * argument);
+void StartUartTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -98,6 +105,17 @@ void StartSensorsTask(void *argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
+	static portBASE_TYPE xHigherPriorityTaskWoken;
+	xHigherPriorityTaskWoken = pdTRUE;
+	xSemaphoreGiveFromISR(uartSemaphoreHandle, &xHigherPriorityTaskWoken );
+}
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	static portBASE_TYPE xHigherPriorityTaskWoken;
+	xHigherPriorityTaskWoken = pdTRUE;
+	xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
+}
 /* USER CODE END 0 */
 
 /**
@@ -139,15 +157,23 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
   /* USER CODE END 2 */
 
-  osKernelInitialize();
-
   /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of uartSemaphore */
+  osSemaphoreDef(uartSemaphore);
+  uartSemaphoreHandle = osSemaphoreCreate(osSemaphore(uartSemaphore), 1);
+
+  /* definition and creation of lineSensorSemaphore */
+  osSemaphoreDef(lineSensorSemaphore);
+  lineSensorSemaphoreHandle = osSemaphoreCreate(osSemaphore(lineSensorSemaphore), 1);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
@@ -158,25 +184,23 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
+
+
 	/* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of linesControlTas */
-  const osThreadAttr_t linesControlTas_attributes = {
-    .name = "linesControlTas",
-    .priority = (osPriority_t) osPriorityNormal,
-    .stack_size = 128
-  };
-  linesControlTasHandle = osThreadNew(StartLinesControlTask, NULL, &linesControlTas_attributes);
+  /* definition and creation of linesControl */
+  osThreadDef(linesControl, StartLinesControl, osPriorityNormal, 0, 1024);
+  linesControlHandle = osThreadCreate(osThread(linesControl), NULL);
 
-  /* definition and creation of sensorsTask */
-  const osThreadAttr_t sensorsTask_attributes = {
-    .name = "sensorsTask",
-    .priority = (osPriority_t) osPriorityNormal,
-    .stack_size = 128
-  };
-  sensorsTaskHandle = osThreadNew(StartSensorsTask, NULL, &sensorsTask_attributes);
+  /* definition and creation of lineSensorTask */
+  osThreadDef(lineSensorTask, StartLineSensorTask, osPriorityNormal, 0, 256);
+  lineSensorTaskHandle = osThreadCreate(osThread(lineSensorTask), NULL);
+
+  /* definition and creation of uartTask */
+  osThreadDef(uartTask, StartUartTask, osPriorityNormal, 0, 128);
+  uartTaskHandle = osThreadCreate(osThread(uartTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -265,8 +289,8 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 12;
   hadc1.Init.DMAContinuousRequests = ENABLE;
@@ -651,6 +675,51 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 69;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 59999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -761,27 +830,26 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
-	uartCmdParse(uartDataFrame);
-}
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartLinesControlTask */
+/* USER CODE BEGIN Header_StartLinesControl */
 /**
- * @brief  Function implementing the linesControlTas thread.
- * @param  argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartLinesControlTask */
-void StartLinesControlTask(void *argument)
+  * @brief  Function implementing the linesControl thread.
+  * @param  argument: Not used 
+  * @retval None
+  */
+/* USER CODE END Header_StartLinesControl */
+void StartLinesControl(void const * argument)
 {
+    
     
     
     
     
 
   /* USER CODE BEGIN 5 */
-	int8_t linesId[CLOCKLINES_TOTAL];
+	int8_t linesId[12];
+	resetLinesId(linesId);
 	/* Infinite loop */
 	for (;;)
 	{
@@ -800,10 +868,11 @@ void StartLinesControlTask(void *argument)
 			if(linesId[0]>=0)
 			{
 				sendPulse(clockLines,linesId,CLOCKLINES_TOTAL, &LinesGPIO);
+				HAL_TIM_Base_Start_IT(&htim2);
 				startClockLinesADC(&hadc1, &clockLineCurrentSensor, linesId);
 				sendCountersToUART(&huart4, clockLines, linesId);
 				osDelay(clockLines_pulseWidth);
-				HAL_ADC_Stop_DMA(&hadc1);
+				HAL_TIM_Base_Stop_IT(&htim2);
 				stopPulse(&LinesGPIO);
 				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, SENSOR_LINES, linesId);
 				resetClockLineCurrentSensor(&clockLineCurrentSensor);
@@ -816,27 +885,57 @@ void StartLinesControlTask(void *argument)
   /* USER CODE END 5 */ 
 }
 
-/* USER CODE BEGIN Header_StartSensorsTask */
+/* USER CODE BEGIN Header_StartLineSensorTask */
 /**
- * @brief Function implementing the sensorsTask thread.
- * @param argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartSensorsTask */
-void StartSensorsTask(void *argument)
+* @brief Function implementing the lineSensorTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartLineSensorTask */
+void StartLineSensorTask(void const * argument)
 {
-  /* USER CODE BEGIN StartSensorsTask */
-	/* Infinite loop */
-	for (;;)
-	{
-		osDelay(1);
-	}
-  /* USER CODE END StartSensorsTask */
+  /* USER CODE BEGIN StartLineSensorTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
+	  {
+		  uint32_t testcnt = 0;
+		  filter(clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines, 0.01, clockLineCurrentSensor.filteredData);
+		  testcnt++;
+		  if (testcnt == 10)
+		  {
+			  testcnt = 0;
+		  }
+	  }
+  }
+  /* USER CODE END StartLineSensorTask */
+}
+
+/* USER CODE BEGIN Header_StartUartTask */
+/**
+* @brief Function implementing the uartTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUartTask */
+void StartUartTask(void const * argument)
+{
+  /* USER CODE BEGIN StartUartTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
+	  		{
+	  			uartCmdParse(uartDataFrame);
+	  		}
+  }
+  /* USER CODE END StartUartTask */
 }
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM14 interrupt took place, inside
+  * @note   This function is called  when TIM1 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -847,7 +946,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM14) {
+  if (htim->Instance == TIM1) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */

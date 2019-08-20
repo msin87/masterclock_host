@@ -111,11 +111,11 @@ void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t C
 	{
 		if (idToSend[i] < 0)
 			break;
-		message.dataArray[j] = (uint16_t)data[idToSend[i]];
+		message.dataArray[j] = (uint16_t)data[i];
 		j++;
 		message.idArray[i]= idToSend[i];
 	}
 
 	messageToFrame(&message, frame);
-	HAL_UART_Transmit(huart, frame, j, 100);
+	HAL_UART_Transmit(huart, frame, 32, 100);
 }

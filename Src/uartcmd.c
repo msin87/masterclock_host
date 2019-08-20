@@ -19,7 +19,7 @@ void uartCmdParse(uint8_t* frame)
 		switch (message.cmd)
 		{
 		case CMD_START:
-			NVIC_SystemReset();
+
 			break;
 		case CMD_CNT_SET:
 			setCounters(message.idArray,message.dataArray);

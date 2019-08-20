@@ -9,7 +9,7 @@
 #include "clocklines.h"
 #include "message.h"
 
-uint16_t clockLines_pulseWidth = 1000;
+uint16_t clockLines_pulseWidth = 10000;
 uint8_t clockLines_isCountersEmpty = 1;
 LinesGPIO_TypeDef LinesGPIO =
 { .Positive = GPIOE, .Negative = GPIOD };
@@ -40,7 +40,7 @@ void stopPulse(LinesGPIO_TypeDef* LinesGPIO)
 }
 void resetLinesId(int8_t* linesId)
 {
-	for (uint8_t i = 0; i < CLOCKLINES_TOTAL; i++)
+	for (uint8_t i = 0; i < 12; i++)
 	{
 		linesId[i] = -1;
 	}

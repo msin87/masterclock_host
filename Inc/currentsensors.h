@@ -22,7 +22,7 @@ ClockLineCurrentSensor clockLineCurrentSensor;
 void startClockLinesADC(ADC_HandleTypeDef* hadc, ClockLineCurrentSensor* sensor,
 		int8_t* linesId);
 void resetClockLineCurrentSensor(ClockLineCurrentSensor* sensor);
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t CMD,
 		int8_t* idToSend);
+void filter(volatile uint8_t* adc_data, uint8_t size, float coeff, float* out);
 #endif /* CURRENTSENSORS_H_ */

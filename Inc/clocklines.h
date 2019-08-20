@@ -11,6 +11,8 @@
 #include "stm32f4xx_hal.h"
 #define POSITIVE 1
 #define DEATH_TIME 30
+#define PULSE_OFF 0
+#define PULSE_ON 1
 typedef struct {
     int8_t polarity;
     uint16_t counter;

@@ -7,6 +7,7 @@
  */
 
 #include "currentsensors.h"
+#include "clocklines.h"
 #include "message.h"
 const uint32_t linesADCChannels[12] =
 {
@@ -26,20 +27,22 @@ void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 {
 	ADC_ChannelConfTypeDef sConfig =
 	{ 0 };
-	ADC_HandleTypeDef hadc1;
-	hadc1.Instance = ADC1;
-	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-	hadc1.Init.Resolution = ADC_RESOLUTION_8B;
-	hadc1.Init.ScanConvMode = ENABLE;
-	hadc1.Init.ContinuousConvMode = ENABLE;
-	hadc1.Init.DiscontinuousConvMode = DISABLE;
-	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	hadc1.Init.NbrOfConversion = 12;
-	hadc1.Init.DMAContinuousRequests = ENABLE;
-	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-	if (HAL_ADC_Init(&hadc1) != HAL_OK)
+	HAL_ADC_Stop(hadc);
+	HAL_ADC_Stop_DMA(hadc);
+	HAL_ADC_DeInit(hadc);
+	hadc->Instance = ADC1;
+	hadc->Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+	hadc->Init.Resolution = ADC_RESOLUTION_8B;
+	hadc->Init.ScanConvMode = ENABLE;
+	hadc->Init.ContinuousConvMode = ENABLE;
+	hadc->Init.DiscontinuousConvMode = DISABLE;
+	hadc->Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	hadc->Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
+	hadc->Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc->Init.NbrOfConversion = 12;
+	hadc->Init.DMAContinuousRequests = ENABLE;
+	hadc->Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	if (HAL_ADC_Init(hadc) != HAL_OK)
 	{
 		for (;;)
 		{
@@ -51,9 +54,9 @@ void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 		if (linesId[i] < 0)
 			break;
 		sConfig.Channel = linesADCChannels[linesId[i]];
-		sConfig.Rank = i++;
+		sConfig.Rank = i + 1;
 		sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-		if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+		if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK)
 		{
 			for (;;)
 			{
@@ -85,12 +88,13 @@ void startClockLinesADC(ADC_HandleTypeDef* hadc, ClockLineCurrentSensor* sensor,
 		reinitADC(hadc, sensor->storedLinesId, totalLines);
 		sensor->totalLines = totalLines;
 	}
-	HAL_ADC_Start_DMA(hadc, (uint32_t*)sensor->adc_data, sensor->totalLines);
-
+	HAL_ADC_Start(hadc);
+	HAL_ADC_Start_DMA(hadc, (uint32_t*) sensor->adc_data, sensor->totalLines);
 }
 
 void filter(volatile uint8_t* adc_data, uint8_t size, float coeff, float* out)
 {
+
 	float a = 1 - coeff;
 	for (int i = 0; i < size; i++)
 	{
@@ -111,9 +115,5 @@ void resetClockLineCurrentSensor(ClockLineCurrentSensor* sensor)
 		sensor->filteredData[i] = 0;
 	}
 }
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	filter(clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines,
-			0.01, clockLineCurrentSensor.filteredData);
-}
+
 
