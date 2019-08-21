@@ -29,7 +29,7 @@ void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 	ADC1->CR2 &= ~ADC_CR2_ADON; 			//turn off ADC
 	TIM2->CR1 &= ~TIM_CR1_CEN;  			//turn off TIM2
 	DMA2_Stream0->CR &= ~DMA_SxCR_EN; 		//turn off DMA2 Stream0 (ADC1)
-	DMA2->LIFCR |= 0x3F						//clear interrupt flags for stream 0
+	DMA2->LIFCR |= 0x3F;					//clear interrupt flags for stream 0
 	TIM2->CNT = 0;							//reset TIM2 counter;
 	ADC1->SQR1 ^=ADC1->SQR1;	  			//reset SQR1 register
 	ADC1->SQR2 ^=ADC1->SQR2;	  			//reset SQR2 register
@@ -49,22 +49,9 @@ void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 		}
 	}
 	DMA2_Stream0->NDTR = totalLines*2;								//set bytes to transmit by DMA. ADC channel has a resolution of 12 bits = 2 byte per channel
-
-	for (uint8_t i = 0; i < totalLines; i++)
-	{
-		if (linesId[i] < 0)
-			break;
-		sConfig.Channel = linesADCChannels[linesId[i]];
-		sConfig.Rank = i + 1;
-		sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-		if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK)
-		{
-			for (;;)
-			{
-
-			}
-		}
-	}
+	TIM2->CR1 |= TIM_CR1_CEN; 				//turn on TIM2
+	DMA2_Stream0->CR |= DMA_SxCR_EN;		//turn off DMA2 Stream0 (ADC1)
+	ADC1->CR2 &= ~ADC_CR2_ADON;				//turn on ADC1
 }
 uint8_t renewId(ClockLineCurrentSensor* sensor, int8_t* linesId)
 {
