@@ -12,7 +12,7 @@
 #include "stm32f407xx.h"
 typedef struct
 {
-	volatile uint8_t adc_data[12];
+	volatile uint16_t adc_data[12];
 	int8_t storedLinesId[12];
 	uint8_t totalLines;
 	float filterCoeff;
@@ -24,5 +24,5 @@ void startClockLinesADC(ADC_HandleTypeDef* hadc, ClockLineCurrentSensor* sensor,
 void resetClockLineCurrentSensor(ClockLineCurrentSensor* sensor);
 void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t CMD,
 		int8_t* idToSend);
-void filter(volatile uint8_t* adc_data, uint8_t size, float coeff, float* out);
+void filter(volatile uint16_t* adc_data, uint8_t size, float coeff, float* out);
 #endif /* CURRENTSENSORS_H_ */

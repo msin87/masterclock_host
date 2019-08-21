@@ -9,46 +9,47 @@
 #include "currentsensors.h"
 #include "clocklines.h"
 #include "message.h"
-const uint32_t linesADCChannels[12] =
+static const uint8_t linesADCChannels[12] =
 {
-ADC_CHANNEL_0,
-ADC_CHANNEL_1,
-ADC_CHANNEL_2,
-ADC_CHANNEL_3,
-ADC_CHANNEL_5,
-ADC_CHANNEL_6,
-ADC_CHANNEL_7,
-ADC_CHANNEL_8,
-ADC_CHANNEL_9,
-ADC_CHANNEL_10,
-ADC_CHANNEL_11,
-ADC_CHANNEL_12 };
+0,
+1,
+2,
+3,
+5,
+6,
+7,
+8,
+9,
+10,
+11,
+12 };
 void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 {
-	ADC_ChannelConfTypeDef sConfig =
-	{ 0 };
-	HAL_ADC_Stop(hadc);
-	HAL_ADC_Stop_DMA(hadc);
-	HAL_ADC_DeInit(hadc);
-	hadc->Instance = ADC1;
-	hadc->Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-	hadc->Init.Resolution = ADC_RESOLUTION_8B;
-	hadc->Init.ScanConvMode = ENABLE;
-	hadc->Init.ContinuousConvMode = ENABLE;
-	hadc->Init.DiscontinuousConvMode = DISABLE;
-	hadc->Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-	hadc->Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
-	hadc->Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	hadc->Init.NbrOfConversion = 12;
-	hadc->Init.DMAContinuousRequests = ENABLE;
-	hadc->Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-	if (HAL_ADC_Init(hadc) != HAL_OK)
-	{
-		for (;;)
-		{
 
+	ADC1->CR2 &= ~ADC_CR2_ADON; 			//turn off ADC
+	TIM2->CR1 &= ~TIM_CR1_CEN;  			//turn off TIM2
+	DMA2_Stream0->CR &= ~DMA_SxCR_EN; 		//turn off DMA2 Stream0 (ADC1)
+	DMA2->LIFCR |= 0x3F						//clear interrupt flags for stream 0
+	TIM2->CNT = 0;							//reset TIM2 counter;
+	ADC1->SQR1 ^=ADC1->SQR1;	  			//reset SQR1 register
+	ADC1->SQR2 ^=ADC1->SQR2;	  			//reset SQR2 register
+	ADC1->SQR3 ^=ADC1->SQR3;	  			//reset SQR3 register
+	ADC1->SQR1 |= totalLines << 20;			//set regular channel sequence length to {totalLines}
+	for (uint8_t i=0; i < totalLines; i++)
+	{
+		if (i<6){
+			ADC1->SQR3 |= linesADCChannels[linesId[i]]<<(5*i);		//writing ADC channel to SQR3
+		}
+		else if (i<12){
+			ADC1->SQR2 |= linesADCChannels[linesId[i]]<<(5*(i-6));  //writing ADC channel to SQR2
+		}
+		else
+		{
+			ADC1->SQR1 |= linesADCChannels[linesId[i]]<<(5*(i-12)); //writing ADC channel to SQR1
 		}
 	}
+	DMA2_Stream0->NDTR = totalLines*2;								//set bytes to transmit by DMA. ADC channel has a resolution of 12 bits = 2 byte per channel
+
 	for (uint8_t i = 0; i < totalLines; i++)
 	{
 		if (linesId[i] < 0)
@@ -92,7 +93,7 @@ void startClockLinesADC(ADC_HandleTypeDef* hadc, ClockLineCurrentSensor* sensor,
 	HAL_ADC_Start_DMA(hadc, (uint32_t*) sensor->adc_data, sensor->totalLines);
 }
 
-void filter(volatile uint8_t* adc_data, uint8_t size, float coeff, float* out)
+void filter(volatile uint16_t* adc_data, uint8_t size, float coeff, float* out)
 {
 
 	float a = 1 - coeff;
