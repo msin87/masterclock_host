@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/stm32/masterclock_host/Inc
+HeaderPath=C:/stm32/host/Inc
 HeaderFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;FreeRTOSConfig.h;
-SourcePath=C:/stm32/masterclock_host/Src
+SourcePath=C:/stm32/host/Src
 SourceFiles=stm32f4xx_it.c;stm32f4xx_hal_msp.c;main.c;freertos.c;stm32f4xx_hal_timebase_tim.c;
 
 [PreviousLibFiles]

@@ -38,6 +38,8 @@ extern uint16_t clockLines_pulseWidth;
 extern uint8_t clockLines_isCountersEmpty;
 extern ClockLineCurrentSensor clockLineCurrentSensor;
 extern uint8_t CLOCKLINES_TOTAL;
+SemaphoreHandle_t uartSemaphoreHandle;
+SemaphoreHandle_t lineSensorSemaphoreHandle;
 
 /* USER CODE END PTD */
 
@@ -74,8 +76,6 @@ UART_HandleTypeDef huart4;
 osThreadId linesControlHandle;
 osThreadId lineSensorTaskHandle;
 osThreadId uartTaskHandle;
-osSemaphoreId uartSemaphoreHandle;
-osSemaphoreId lineSensorSemaphoreHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -107,13 +107,15 @@ void StartUartTask(void const * argument);
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 	static portBASE_TYPE xHigherPriorityTaskWoken;
-	xHigherPriorityTaskWoken = pdTRUE;
+	xHigherPriorityTaskWoken = pdFALSE;
+	HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
 	xSemaphoreGiveFromISR(uartSemaphoreHandle, &xHigherPriorityTaskWoken );
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	static portBASE_TYPE xHigherPriorityTaskWoken;
-	xHigherPriorityTaskWoken = pdTRUE;
+	xHigherPriorityTaskWoken = pdFALSE;
+	HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
 	xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
 }
 /* USER CODE END 0 */
@@ -166,16 +168,9 @@ int main(void)
 	/* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
-  /* Create the semaphores(s) */
-  /* definition and creation of uartSemaphore */
-  osSemaphoreDef(uartSemaphore);
-  uartSemaphoreHandle = osSemaphoreCreate(osSemaphore(uartSemaphore), 1);
-
-  /* definition and creation of lineSensorSemaphore */
-  osSemaphoreDef(lineSensorSemaphore);
-  lineSensorSemaphoreHandle = osSemaphoreCreate(osSemaphore(lineSensorSemaphore), 1);
-
   /* USER CODE BEGIN RTOS_SEMAPHORES */
+  uartSemaphoreHandle = xSemaphoreCreateBinary();
+  lineSensorSemaphoreHandle = xSemaphoreCreateBinary();
 	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -871,8 +866,8 @@ void StartLinesControl(void const * argument)
 				HAL_TIM_Base_Start_IT(&htim2);
 				startClockLinesADC(&hadc1, &clockLineCurrentSensor, linesId);
 				sendCountersToUART(&huart4, clockLines, linesId);
-				osDelay(clockLines_pulseWidth);
-				HAL_TIM_Base_Stop_IT(&htim2);
+				osDelay(10000);
+				stopClockLinesADC(&hadc1);
 				stopPulse(&LinesGPIO);
 				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, SENSOR_LINES, linesId);
 				resetClockLineCurrentSensor(&clockLineCurrentSensor);
@@ -898,15 +893,9 @@ void StartLineSensorTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
+	  if (xSemaphoreTake(lineSensorSemaphoreHandle,portMAX_DELAY)==pdTRUE)
 	  {
-		  uint32_t testcnt = 0;
 		  filter(clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines, 0.01, clockLineCurrentSensor.filteredData);
-		  testcnt++;
-		  if (testcnt == 10)
-		  {
-			  testcnt = 0;
-		  }
 	  }
   }
   /* USER CODE END StartLineSensorTask */
@@ -923,13 +912,13 @@ void StartUartTask(void const * argument)
 {
   /* USER CODE BEGIN StartUartTask */
   /* Infinite loop */
-  for(;;)
-  {
-	  if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
-	  		{
-	  			uartCmdParse(uartDataFrame);
-	  		}
-  }
+	for(;;)
+	{
+		if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
+		{
+			uartCmdParse(uartDataFrame);
+		}
+	}
   /* USER CODE END StartUartTask */
 }
 
