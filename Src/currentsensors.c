@@ -100,7 +100,7 @@ void reinitADC(ADC_HandleTypeDef* hadc, int8_t* linesId, uint8_t totalLines)
 				break;
 			sConfig.Channel = linesADCChannels[linesId[i]];
 			sConfig.Rank = i + 1;
-			sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+			sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;;
 			if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK)
 			{
 				for (;;)
@@ -129,6 +129,7 @@ void startClockLinesADC(ADC_HandleTypeDef* hadc, ClockLineCurrentSensor* sensor,
 		int8_t* linesId)
 {
 	uint8_t totalLines = renewId(sensor, linesId);
+	clockLineCurrentSensor.filterCoeff=0.001;
 	if (totalLines)
 	{
 		//STOP_TIM_DMA_ADC();
@@ -161,6 +162,28 @@ void resetClockLineCurrentSensor(ClockLineCurrentSensor* sensor)
 	{
 		sensor->filteredData[i] = 0;
 	}
+}
+void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t CMD,
+		int8_t* idToSend)
+{
+	Message message;
+	uint8_t frame[32] =
+	{ 0 };
+	uint8_t j = 0;
+	messageInit(&message);
+	message.cmd = CMD;
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idToSend[i] < 0)
+			break;
+		if (clockLines[idToSend[i]].counter==0) continue;
+		message.dataArray[j] = (uint16_t)data[i];
+		j++;
+		message.idArray[i]= idToSend[i];
+	}
+
+	messageToFrame(&message, frame);
+	HAL_UART_Transmit(huart, frame, 32, 100);
 }
 
 

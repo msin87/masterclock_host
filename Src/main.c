@@ -113,9 +113,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
+	static uint8_t count=0;
 	static portBASE_TYPE xHigherPriorityTaskWoken;
 	xHigherPriorityTaskWoken = pdFALSE;
-	HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
+	if (count==5){
+		count=0;
+	}
+	count++;
+	//HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
 	xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
 }
 /* USER CODE END 0 */
@@ -298,7 +303,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -339,6 +344,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_6;
   sConfig.Rank = 6;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -854,8 +860,6 @@ void StartLinesControl(void const * argument)
 				if (clockLines[id].counter)
 				{
 					clockLines[id].polarity=!clockLines[id].polarity;
-					clockLines[id].counter--;
-					clockLines_isCountersEmpty=!clockLines[id].counter;
 					linesId[j]=(int8_t)id;
 					j++;
 				}
@@ -863,16 +867,23 @@ void StartLinesControl(void const * argument)
 			if(linesId[0]>=0)
 			{
 				sendPulse(clockLines,linesId,CLOCKLINES_TOTAL, &LinesGPIO);
-				HAL_TIM_Base_Start_IT(&htim2);
 				startClockLinesADC(&hadc1, &clockLineCurrentSensor, linesId);
 				sendCountersToUART(&huart4, clockLines, linesId);
-				osDelay(10000);
+				osDelay(3000);
 				stopClockLinesADC(&hadc1);
 				stopPulse(&LinesGPIO);
 				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, SENSOR_LINES, linesId);
 				resetClockLineCurrentSensor(&clockLineCurrentSensor);
 				osDelay(DEATH_TIME);
 				resetLinesId(linesId);
+			}
+			for (uint8_t id=0; id<12; id++)
+			{
+				if (clockLines[id].counter)
+				{
+					clockLines[id].counter--;
+					clockLines_isCountersEmpty&=!clockLines[id].counter;
+				}
 			}
 		}
 
@@ -893,10 +904,9 @@ void StartLineSensorTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  if (xSemaphoreTake(lineSensorSemaphoreHandle,portMAX_DELAY)==pdTRUE)
-	  {
-		  filter(clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines, 0.01, clockLineCurrentSensor.filteredData);
-	  }
+	  xSemaphoreTake(lineSensorSemaphoreHandle,portMAX_DELAY);
+	  filter(clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines, 0.01, clockLineCurrentSensor.filteredData);
+
   }
   /* USER CODE END StartLineSensorTask */
 }
