@@ -9,7 +9,7 @@
 #include "clocklines.h"
 #include "message.h"
 
-uint16_t clockLines_pulseWidth = 10000;
+uint16_t clockLines_pulseWidth = 1000;
 uint8_t clockLines_isCountersEmpty = 1;
 LinesGPIO_TypeDef LinesGPIO =
 { .Positive = GPIOE, .Negative = GPIOD };
@@ -53,7 +53,7 @@ void setCounters(int8_t* idArray, uint16_t* counters)
 			break;
 		clockLines[idArray[i]].counter = counters[i];
 	}
-	clockLines_isCountersEmpty=0;
+	clockLines_isCountersEmpty = 0;
 }
 void increaseCounters(int8_t* idArray)
 {
@@ -63,7 +63,49 @@ void increaseCounters(int8_t* idArray)
 			break;
 		clockLines[idArray[i]].counter++;
 	}
-	clockLines_isCountersEmpty=0;
+	clockLines_isCountersEmpty = 0;
+}
+void resetCounters(int8_t* idArray)
+{
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idArray[i] < 0)
+			break;
+		clockLines[idArray[i]].counter = 0;
+	}
+	clockLines_isCountersEmpty = 1;
+}
+void suspendCounters(int8_t* idArray)
+{
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idArray[i] < 0)
+			break;
+		clockLines[idArray[i]].isOn = 0;
+	}
+
+}
+void resumeCounters(int8_t* idArray)
+{
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idArray[i] < 0)
+			break;
+		clockLines[idArray[i]].isOn = 1;
+	}
+}
+void setPulseWidth(uint16_t* width)
+{
+	clockLines_pulseWidth = width[0];
+}
+void setPulsePolarity(int8_t* idArray, uint16_t* polarity)
+{
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idArray[i] < 0)
+			break;
+		clockLines[idArray[i]].polarity = polarity[i];
+	}
 }
 void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
 		int8_t* idToSend)
@@ -79,6 +121,26 @@ void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
 		if (idToSend[i] < 0)
 			break;
 		message.dataArray[j] = clockLines[idToSend[i]].counter;
+		j++;
+		message.idArray[i] = idToSend[i];
+	}
+	messageToFrame(&message, frame);
+	HAL_UART_Transmit(huart, frame, 32, 100);
+}
+void sendPolarityToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
+		int8_t* idToSend)
+{
+	Message message;
+	uint8_t frame[32] =
+	{ 0 };
+	uint8_t j = 0;
+	messageInit(&message);
+	message.cmd = RESP_LINES_POL;
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		if (idToSend[i] < 0)
+			break;
+		message.dataArray[j] = clockLines[idToSend[i]].polarity;
 		j++;
 		message.idArray[i] = idToSend[i];
 	}

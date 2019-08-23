@@ -114,6 +114,14 @@ void Error_Handler(void);
 #define OUT10_neg_GPIO_Port GPIOD
 #define OUT11_neg_Pin GPIO_PIN_11
 #define OUT11_neg_GPIO_Port GPIOD
+#define RELAY0_Pin GPIO_PIN_12
+#define RELAY0_GPIO_Port GPIOD
+#define RELAY1_Pin GPIO_PIN_13
+#define RELAY1_GPIO_Port GPIOD
+#define RELAY2_Pin GPIO_PIN_14
+#define RELAY2_GPIO_Port GPIOD
+#define RELAY3_Pin GPIO_PIN_15
+#define RELAY3_GPIO_Port GPIOD
 #define ShutdownRPI_Pin GPIO_PIN_15
 #define ShutdownRPI_GPIO_Port GPIOA
 #define OUT0_neg_Pin GPIO_PIN_0

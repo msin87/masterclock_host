@@ -1,0 +1,53 @@
+<head>
+	<script src="script.js"></script>
+	<style type="text/css">
+		table {
+			border-collapse: collapse;
+			width: 100%;
+		}
+		td,th {
+			padding: 3px;
+    		border: 1px solid black;
+		}
+		th{
+			background: #b0e0e6;
+		}
+		.encode, .output{
+			border: 1px solid black;
+			width: 100%;
+		}
+	</style>
+</head>
+<body>
+	<div class="wrapper">
+		<div class="input">
+			<table>
+				<tr>
+					<th align="center">Command</th>
+					<th align="center">ID</th>
+					<th align="center">Data</th>
+				</tr>
+				<tr>
+					<td>0x<input type="text" name="cmd" id="cmd" placeholder="0001"></td>
+					<td>0x<input type="text" name="id" id="id" placeholder="0,1,3,5"></td>
+					<td>0x<input type="text" name="data" id="data" placeholder="20,1,4,800"></td>
+				</tr>
+			</table>
+		</div> <br/>
+		<div>Кадр без CRC32:</div> 
+		<div class="encode">
+			<a id='encoded'>0x00 0x01 0x00 0x33 0x00 0x06 0x00 0x05 0x00 0x05 0x00 0x05 0x00 0x0 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00</a>
+		</div>
+		<div class="action">
+			Добавить 0x перед байтами <input type="checkbox" name="add0x" checked="true">
+			<button id='buttonCrcReq'>Подсчитать CRC32</button>
+		</div> <br/>
+		<div>Кадр с CRC32:</div> 
+		<div class="output">
+			<div class="hex">
+				<a id='fullFrame'>0x00 0x01 0x00 0x33 0x00 0x06 0x00 0x05 0x00 0x05 0x00 0x05 0x00 0x0 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x99 0xE5 0x27 0x20</a>
+			</div>
+		</div>
+		
+	</div>
+</body>

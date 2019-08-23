@@ -8,8 +8,11 @@
 #define CMD_CNT_SUSPEND 	0x0004
 #define CMD_CNT_RESUME 		0x0005
 #define CMD_PULSE_WIDTH 	0x0006
+#define CMD_PULSE_POL	 	0x0007
+#define CMD_RELAY_SET	 	0x0008
 #define RESP_CNT			0x0001
-#define SENSOR_LINES		0x0002
+#define RESP_ADC_LINES		0x0002
+#define RESP_LINES_POL		0x0007
 typedef struct
 {
 	uint16_t cmd;

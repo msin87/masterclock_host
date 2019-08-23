@@ -793,6 +793,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, OUT8_neg_Pin|OUT9_neg_Pin|OUT10_neg_Pin|OUT11_neg_Pin 
+                          |RELAY0_Pin|RELAY1_Pin|RELAY2_Pin|RELAY3_Pin 
                           |OUT0_neg_Pin|OUT1_neg_Pin|OUT2_neg_Pin|OUT3_neg_Pin 
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
@@ -811,9 +812,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pins : OUT8_neg_Pin OUT9_neg_Pin OUT10_neg_Pin OUT11_neg_Pin 
+                           RELAY0_Pin RELAY1_Pin RELAY2_Pin RELAY3_Pin 
                            OUT0_neg_Pin OUT1_neg_Pin OUT2_neg_Pin OUT3_neg_Pin 
                            OUT4_neg_Pin OUT5_neg_Pin OUT6_neg_Pin OUT7_neg_Pin */
   GPIO_InitStruct.Pin = OUT8_neg_Pin|OUT9_neg_Pin|OUT10_neg_Pin|OUT11_neg_Pin 
+                          |RELAY0_Pin|RELAY1_Pin|RELAY2_Pin|RELAY3_Pin 
                           |OUT0_neg_Pin|OUT1_neg_Pin|OUT2_neg_Pin|OUT3_neg_Pin 
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -857,7 +860,7 @@ void StartLinesControl(void const * argument)
 		if (!clockLines_isCountersEmpty){
 			for (uint8_t id=0,j=0; id<12; id++)
 			{
-				if (clockLines[id].counter)
+				if (clockLines[id].counter && clockLines[id].isOn)
 				{
 					clockLines[id].polarity=!clockLines[id].polarity;
 					linesId[j]=(int8_t)id;
@@ -866,13 +869,16 @@ void StartLinesControl(void const * argument)
 			}
 			if(linesId[0]>=0)
 			{
+				//start pulse
 				sendPulse(clockLines,linesId,CLOCKLINES_TOTAL, &LinesGPIO);
 				startClockLinesADC(&hadc1, &clockLineCurrentSensor, linesId);
 				sendCountersToUART(&huart4, clockLines, linesId);
-				osDelay(3000);
+				sendPolarityToUART(&huart4, clockLines, linesId);
+				osDelay(clockLines_pulseWidth);
+				//stop pulse
 				stopClockLinesADC(&hadc1);
 				stopPulse(&LinesGPIO);
-				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, SENSOR_LINES, linesId);
+				sendCurrentSensorsToUART(&huart4, clockLineCurrentSensor.filteredData, RESP_ADC_LINES, linesId);
 				resetClockLineCurrentSensor(&clockLineCurrentSensor);
 				osDelay(DEATH_TIME);
 				resetLinesId(linesId);

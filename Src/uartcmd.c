@@ -8,7 +8,7 @@
 #include "uartcmd.h"
 #include "message.h"
 #include "clocklines.h"
-
+#include "relay.h"
 void uartCmdParse(uint8_t* frame)
 {
 	Message message;
@@ -28,12 +28,22 @@ void uartCmdParse(uint8_t* frame)
 			increaseCounters(message.idArray);
 			break;
 		case CMD_CNT_RESET:
+			resetCounters(message.idArray);
 			break;
 		case CMD_CNT_SUSPEND:
+			suspendCounters(message.idArray);
 			break;
 		case CMD_CNT_RESUME:
+			resumeCounters(message.idArray);
 			break;
 		case CMD_PULSE_WIDTH:
+			setPulseWidth(message.dataArray);
+			break;
+		case CMD_PULSE_POL:
+			setPulsePolarity(message.idArray,message.dataArray);
+			break;
+		case CMD_RELAY_SET:
+			setRelay(message.idArray,message.dataArray);
 			break;
 		default:
 			break;

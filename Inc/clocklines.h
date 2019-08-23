@@ -14,8 +14,9 @@
 #define PULSE_OFF 0
 #define PULSE_ON 1
 typedef struct {
-    int8_t polarity;
+    uint8_t polarity;
     uint16_t counter;
+    uint8_t isOn;
 } ClockLine;
 typedef struct
 {
@@ -33,4 +34,11 @@ void resetLinesId(int8_t* linesId);
 void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines, int8_t* idToSend);
 void setCounters(int8_t* idArray, uint16_t* counters);
 void increaseCounters(int8_t* idArray);
+void resetCounters(int8_t* idArray);
+void suspendCounters(int8_t* idArray);
+void resumeCounters(int8_t* idArray);
+void setPulseWidth(uint16_t* width);
+void setPulsePolarity(int8_t* idArray, uint16_t* polarity);
+void sendPolarityToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
+		int8_t* idToSend);
 #endif /* CLOCKLINES_H_ */
