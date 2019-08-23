@@ -877,12 +877,13 @@ void StartLinesControl(void const * argument)
 				osDelay(DEATH_TIME);
 				resetLinesId(linesId);
 			}
+			clockLines_isCountersEmpty=1;
 			for (uint8_t id=0; id<12; id++)
 			{
 				if (clockLines[id].counter)
 				{
 					clockLines[id].counter--;
-					clockLines_isCountersEmpty&=!clockLines[id].counter;
+					clockLines_isCountersEmpty=0;
 				}
 			}
 		}
