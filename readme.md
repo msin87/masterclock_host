@@ -191,25 +191,6 @@ Set polarity of previous pulse.
 *Explanations*:
 Set relay state.
 
-*Example* :
-
-```
-(hex): 00 08 04 5A 00 01 00 00 00 00 00 01 00 01
-```
-
-|  data   |    description     |
-| :-----: | :----------------: |
-| `00 08` |        CMD         |
-|  `04`   |     line ID10      |
-|  `5A`   |  lines ID6,4,3,1   |
-| `00 01` | turn on relay ID1  |
-| `00 00` | turn off relay ID3 |
-| `00 00` | turn off relay ID4 |
-| `00 01` | turn on relay ID6  |
-| `00 01` | turn on relay ID10 |
-
-
-
 ## Responses 
 
 *Frame formats are given without CRC32 bytes.*

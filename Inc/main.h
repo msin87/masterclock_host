@@ -72,9 +72,7 @@ void Error_Handler(void);
 #define Isense9_GPIO_Port GPIOC
 #define Isense10_Pin GPIO_PIN_1
 #define Isense10_GPIO_Port GPIOC
-#define Isense11_Pin GPIO_PIN_2
-#define Isense11_GPIO_Port GPIOC
-#define UVLOsense_Pin GPIO_PIN_3
+#define UVLOsense_Pin GPIO_PIN_2
 #define UVLOsense_GPIO_Port GPIOC
 #define Isense0_Pin GPIO_PIN_0
 #define Isense0_GPIO_Port GPIOA
@@ -122,8 +120,10 @@ void Error_Handler(void);
 #define RELAY2_GPIO_Port GPIOD
 #define RELAY3_Pin GPIO_PIN_15
 #define RELAY3_GPIO_Port GPIOD
-#define ShutdownRPI_Pin GPIO_PIN_15
-#define ShutdownRPI_GPIO_Port GPIOA
+#define wakeUpRPi_Pin GPIO_PIN_10
+#define wakeUpRPi_GPIO_Port GPIOA
+#define notShutDownRPi_Pin GPIO_PIN_15
+#define notShutDownRPi_GPIO_Port GPIOA
 #define OUT0_neg_Pin GPIO_PIN_0
 #define OUT0_neg_GPIO_Port GPIOD
 #define OUT1_neg_Pin GPIO_PIN_1

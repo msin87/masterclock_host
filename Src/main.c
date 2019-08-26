@@ -40,7 +40,8 @@ extern ClockLineCurrentSensor clockLineCurrentSensor;
 extern uint8_t CLOCKLINES_TOTAL;
 SemaphoreHandle_t uartSemaphoreHandle;
 SemaphoreHandle_t lineSensorSemaphoreHandle;
-
+SemaphoreHandle_t uvloSemaphoreHandle;
+uint8_t rPIrun;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -76,6 +77,7 @@ UART_HandleTypeDef huart4;
 osThreadId linesControlHandle;
 osThreadId lineSensorTaskHandle;
 osThreadId uartTaskHandle;
+osThreadId uvloTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -97,6 +99,7 @@ static void MX_TIM2_Init(void);
 void StartLinesControl(void const * argument);
 void StartLineSensorTask(void const * argument);
 void StartUartTask(void const * argument);
+void startUVLOTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -113,15 +116,29 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	static uint8_t count=0;
-	static portBASE_TYPE xHigherPriorityTaskWoken;
-	xHigherPriorityTaskWoken = pdFALSE;
-	if (count==5){
-		count=0;
+	if (hadc->Instance==ADC1)
+	{
+		static uint8_t count=0;
+		static portBASE_TYPE xHigherPriorityTaskWoken;
+		xHigherPriorityTaskWoken = pdFALSE;
+		if (count==5){
+			count=0;
+		}
+		count++;
+		//HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
+		xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
 	}
-	count++;
-	//HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
-	xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
+
+}
+void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc)
+{
+	static portBASE_TYPE xHigherPriorityTaskWoken;
+	if (hadc->Instance==ADC2){
+		HAL_ADC_Stop_IT(hadc);
+		xHigherPriorityTaskWoken = pdFALSE;
+		xSemaphoreGiveFromISR(uvloSemaphoreHandle, &xHigherPriorityTaskWoken);
+	}
+
 }
 /* USER CODE END 0 */
 
@@ -166,7 +183,9 @@ int main(void)
   MX_UART4_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  notShutDownRPi_GPIO_Port->BSRR |= notShutDownRPi_Pin<<15;
   HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
+
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -176,6 +195,7 @@ int main(void)
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   uartSemaphoreHandle = xSemaphoreCreateBinary();
   lineSensorSemaphoreHandle = xSemaphoreCreateBinary();
+  uvloSemaphoreHandle = xSemaphoreCreateBinary();
 	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -201,6 +221,10 @@ int main(void)
   /* definition and creation of uartTask */
   osThreadDef(uartTask, StartUartTask, osPriorityNormal, 0, 128);
   uartTaskHandle = osThreadCreate(osThread(uartTask), NULL);
+
+  /* definition and creation of uvloTask */
+  osThreadDef(uvloTask, startUVLOTask, osPriorityNormal, 0, 256);
+  uvloTaskHandle = osThreadCreate(osThread(uvloTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -415,6 +439,7 @@ static void MX_ADC2_Init(void)
 
   /* USER CODE END ADC2_Init 0 */
 
+  ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC2_Init 1 */
@@ -426,21 +451,32 @@ static void MX_ADC2_Init(void)
   hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc2.Init.Resolution = ADC_RESOLUTION_12B;
   hadc2.Init.ScanConvMode = DISABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = ENABLE;
   hadc2.Init.DiscontinuousConvMode = DISABLE;
   hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc2.Init.NbrOfConversion = 1;
   hadc2.Init.DMAContinuousRequests = DISABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure the analog watchdog 
+  */
+  AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+  AnalogWDGConfig.HighThreshold = 4095;
+  AnalogWDGConfig.LowThreshold = 3000;
+  AnalogWDGConfig.Channel = ADC_CHANNEL_13;
+  AnalogWDGConfig.ITMode = ENABLE;
+  if (HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
   */
-  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
@@ -448,7 +484,8 @@ static void MX_ADC2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC2_Init 2 */
-
+  HAL_ADC_Start_IT(&hadc2);
+  ADC2->CR2 |= ADC_CR2_SWSTART;
   /* USER CODE END ADC2_Init 2 */
 
 }
@@ -798,7 +835,7 @@ static void MX_GPIO_Init(void)
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ShutdownRPI_GPIO_Port, ShutdownRPI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, wakeUpRPi_Pin|notShutDownRPi_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : OUT2_pos_Pin OUT3_pos_Pin OUT4_pos_Pin OUT5_pos_Pin 
                            OUT6_pos_Pin OUT7_pos_Pin OUT8_pos_Pin OUT9_pos_Pin 
@@ -824,12 +861,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ShutdownRPI_Pin */
-  GPIO_InitStruct.Pin = ShutdownRPI_Pin;
+  /*Configure GPIO pins : wakeUpRPi_Pin notShutDownRPi_Pin */
+  GPIO_InitStruct.Pin = wakeUpRPi_Pin|notShutDownRPi_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(ShutdownRPI_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
@@ -845,6 +882,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartLinesControl */
 void StartLinesControl(void const * argument)
 {
+    
     
     
     
@@ -908,6 +946,7 @@ void StartLinesControl(void const * argument)
 void StartLineSensorTask(void const * argument)
 {
   /* USER CODE BEGIN StartLineSensorTask */
+
   /* Infinite loop */
   for(;;)
   {
@@ -937,6 +976,65 @@ void StartUartTask(void const * argument)
 		}
 	}
   /* USER CODE END StartUartTask */
+}
+
+/* USER CODE BEGIN Header_startUVLOTask */
+
+/**
+* @brief Function implementing the uvloTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startUVLOTask */
+void startUVLOTask(void const * argument)
+{
+  /* USER CODE BEGIN startUVLOTask */
+
+	ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+	HAL_ADC_Start_IT(&hadc2);
+  /* Infinite loop */
+  for(;;)
+  {
+	  xSemaphoreTake(uvloSemaphoreHandle,portMAX_DELAY);
+	  if (ADC2->DR>=ADC2->HTR){
+		  osDelay(1000);												//Wait for voltage stabilization
+		  if (ADC2->DR < ADC2->HTR)										//Debouncing. If voltage still low do nothing
+		  {
+			  HAL_ADC_Start_IT(&hadc2);
+			  continue;
+		  }
+		  HAL_ADC_Stop_IT(&hadc2);
+		  notShutDownRPi_GPIO_Port->BSRR|= notShutDownRPi_Pin; 			//Reset NotShutdown to 1.
+		  wakeUpRPi_GPIO_Port->BSRR |= wakeUpRPi_Pin;					//Set wakeUp to 1
+		  osDelay(1000);
+		  wakeUpRPi_GPIO_Port->BSRR |= (wakeUpRPi_Pin << 15);			//Reset wakeUp to 0
+		  AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG; //Restore AWD defaults
+		  AnalogWDGConfig.HighThreshold = 4095;
+		  AnalogWDGConfig.LowThreshold = 3000;
+		  AnalogWDGConfig.Channel = ADC_CHANNEL_12;
+		  AnalogWDGConfig.ITMode = ENABLE;
+		  if (HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig) != HAL_OK)
+		  {
+			  Error_Handler();
+		  }
+	  }
+	  else
+	  {
+		  notShutDownRPi_GPIO_Port->BSRR |= (notShutDownRPi_Pin<<15) ;		//Call shutdown RPi
+		  HAL_ADC_Stop_IT(&hadc2);											//Stop ADC to reconfigure
+		  AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+		  AnalogWDGConfig.HighThreshold = ADC2->LTR;						//Move down window
+		  AnalogWDGConfig.LowThreshold = ADC2->LTR*0.7;
+		  AnalogWDGConfig.Channel = ADC_CHANNEL_12;
+		  AnalogWDGConfig.ITMode = ENABLE;
+		  if (HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig) != HAL_OK)
+		  {
+		  	Error_Handler();
+		  }
+	  }
+			HAL_ADC_Start_IT(&hadc2);
+  }
+  /* USER CODE END startUVLOTask */
 }
 
 /**
