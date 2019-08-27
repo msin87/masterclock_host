@@ -92,11 +92,11 @@ static void MX_ADC3_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_CRC_Init(void);
 static void MX_DAC_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM8_Init(void);
+static void MX_I2C1_Init(void);
 void StartLinesControl(void const * argument);
 void StartLineSensorTask(void const * argument);
 void StartUartTask(void const * argument);
@@ -179,13 +179,13 @@ int main(void)
   MX_CAN1_Init();
   MX_CRC_Init();
   MX_DAC_Init();
-  MX_I2C1_Init();
   MX_SPI1_Init();
   MX_UART4_Init();
   MX_TIM2_Init();
   MX_TIM8_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  notShutDownRPi_GPIO_Port->BSRR |= notShutDownRPi_Pin<<15;
+  notShutDownRPi_GPIO_Port->BSRR |= notShutDownRPi_Pin<<16;
   HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
 
   /* USER CODE END 2 */
@@ -881,6 +881,12 @@ static void MX_GPIO_Init(void)
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_nSen_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, wakeUpRPi_Pin|notShutDownRPi_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : OUT2_pos_Pin OUT3_pos_Pin OUT4_pos_Pin OUT5_pos_Pin 
@@ -906,6 +912,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Si4702_nReset_Pin Si4702_nSen_Pin Si4702_GPIO1_Pin Si4702_GPIO2_Pin */
+  GPIO_InitStruct.Pin = Si4702_nReset_Pin|Si4702_nSen_Pin|Si4702_GPIO1_Pin|Si4702_GPIO2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : wakeUpRPi_Pin notShutDownRPi_Pin */
   GPIO_InitStruct.Pin = wakeUpRPi_Pin|notShutDownRPi_Pin;
@@ -1054,13 +1067,13 @@ void startUVLOTask(void const * argument)
 		  notShutDownRPi_GPIO_Port->BSRR|= notShutDownRPi_Pin; 			//Reset NotShutdown to 1.
 		  wakeUpRPi_GPIO_Port->BSRR |= wakeUpRPi_Pin;					//Set wakeUp to 1
 		  osDelay(1000);
-		  wakeUpRPi_GPIO_Port->BSRR |= (wakeUpRPi_Pin << 15);			//Reset wakeUp to 0
+		  wakeUpRPi_GPIO_Port->BSRR |= (wakeUpRPi_Pin << 16);			//Reset wakeUp to 0
 		  ADC2->HTR = 4095;												//Restore defaults for Analog WatchDog
 		  ADC2->LTR = 3000;
 	  }
 	  else if (adcdata<ADC2->LTR)											//If voltage low
 	  {
-		  notShutDownRPi_GPIO_Port->BSRR |= (notShutDownRPi_Pin<<15) ;		//Call shutdown RPi
+		  notShutDownRPi_GPIO_Port->BSRR |= (notShutDownRPi_Pin<<16) ;		//Call shutdown RPi
 		  if (ADC2->LTR>500){												//Shift down AWD window
 			  ADC2->HTR = ADC2->LTR;
 			  ADC2->LTR = ADC2->LTR-500;

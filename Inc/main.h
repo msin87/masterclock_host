@@ -120,6 +120,14 @@ void Error_Handler(void);
 #define RELAY2_GPIO_Port GPIOD
 #define RELAY3_Pin GPIO_PIN_15
 #define RELAY3_GPIO_Port GPIOD
+#define Si4702_nReset_Pin GPIO_PIN_6
+#define Si4702_nReset_GPIO_Port GPIOC
+#define Si4702_nSen_Pin GPIO_PIN_7
+#define Si4702_nSen_GPIO_Port GPIOC
+#define Si4702_GPIO1_Pin GPIO_PIN_8
+#define Si4702_GPIO1_GPIO_Port GPIOC
+#define Si4702_GPIO2_Pin GPIO_PIN_9
+#define Si4702_GPIO2_GPIO_Port GPIOC
 #define wakeUpRPi_Pin GPIO_PIN_10
 #define wakeUpRPi_GPIO_Port GPIOA
 #define notShutDownRPi_Pin GPIO_PIN_15
@@ -140,6 +148,10 @@ void Error_Handler(void);
 #define OUT6_neg_GPIO_Port GPIOD
 #define OUT7_neg_Pin GPIO_PIN_7
 #define OUT7_neg_GPIO_Port GPIOD
+#define Si4702_SCLK_Pin GPIO_PIN_8
+#define Si4702_SCLK_GPIO_Port GPIOB
+#define Si4702_SDIO_Pin GPIO_PIN_9
+#define Si4702_SDIO_GPIO_Port GPIOB
 #define OUT0_pos_Pin GPIO_PIN_0
 #define OUT0_pos_GPIO_Port GPIOE
 #define OUT1_pos_Pin GPIO_PIN_1
