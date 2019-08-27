@@ -70,6 +70,7 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart4;
 
@@ -95,6 +96,7 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM8_Init(void);
 void StartLinesControl(void const * argument);
 void StartLineSensorTask(void const * argument);
 void StartUartTask(void const * argument);
@@ -115,27 +117,27 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart){
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	static uint8_t count=0;
 	if (hadc->Instance==ADC1)
 	{
+		static uint8_t count=0;
 		static portBASE_TYPE xHigherPriorityTaskWoken;
 		xHigherPriorityTaskWoken = pdFALSE;
+		if (count==5){
+			count=0;
+		}
+		count++;
 		//HAL_ADC_Start_DMA(hadc, (uint32_t*) clockLineCurrentSensor.adc_data, clockLineCurrentSensor.totalLines);
 		xSemaphoreGiveFromISR(lineSensorSemaphoreHandle, &xHigherPriorityTaskWoken );
-	}
-	else if (hadc->Instance==ADC2)
-	{
-		count++;
 	}
 
 }
 void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc)
 {
-	static portBASE_TYPE xHigherPriorityTaskWoken2;
+	static portBASE_TYPE xHigherPriorityTaskWoken;
 	if (hadc->Instance==ADC2){
-		ADC2->CR2&=~ADC_CR2_ADON;
-		xHigherPriorityTaskWoken2 = pdFALSE;
-		xSemaphoreGiveFromISR(uvloSemaphoreHandle, &xHigherPriorityTaskWoken2);
+		ADC2->CR1&=~ADC_CR1_AWDEN;												//disable AWD
+		xHigherPriorityTaskWoken = pdFALSE;
+		xSemaphoreGiveFromISR(uvloSemaphoreHandle, &xHigherPriorityTaskWoken);
 	}
 
 }
@@ -181,6 +183,7 @@ int main(void)
   MX_SPI1_Init();
   MX_UART4_Init();
   MX_TIM2_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   notShutDownRPi_GPIO_Port->BSRR |= notShutDownRPi_Pin<<15;
   HAL_UART_Receive_IT(&huart4, uartDataFrame, sizeof(uartDataFrame));
@@ -452,8 +455,8 @@ static void MX_ADC2_Init(void)
   hadc2.Init.ScanConvMode = DISABLE;
   hadc2.Init.ContinuousConvMode = ENABLE;
   hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc2.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T8_TRGO;
   hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc2.Init.NbrOfConversion = 1;
   hadc2.Init.DMAContinuousRequests = DISABLE;
@@ -755,6 +758,52 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 335;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 62449;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -987,53 +1036,38 @@ void startUVLOTask(void const * argument)
 {
   /* USER CODE BEGIN startUVLOTask */
 
-	//ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
 	HAL_ADC_Start(&hadc2);
+	HAL_TIM_Base_Start(&htim8);
+	static float adcdata=0;
   /* Infinite loop */
   for(;;)
   {
 	  xSemaphoreTake(uvloSemaphoreHandle,portMAX_DELAY);
-	  if (ADC2->DR>=ADC2->HTR){
+	  if (adcdata==0) adcdata=ADC2->DR;									//Initialization ADC filtered buffer
+	  filter((uint16_t*)&ADC2->DR, 1, 0.001, &adcdata);					//Anti-noise EMA filter with coefficient 0.001 (todo: tune coefficient)
+      if (adcdata>=ADC2->HTR){											//Compare filtered value with high threshold. Voltage restored?
 		  osDelay(1000);												//Wait for voltage stabilization
-		  if (ADC2->DR < ADC2->HTR)										//Debouncing. If voltage still low do nothing
+		  if (adcdata < ADC2->HTR)										//Debouncing. If voltage still low do nothing (todo: try to remove this part due to the presence of a filter)
 		  {
-			  HAL_ADC_Start(&hadc2);
 			  continue;
 		  }
-		  ADC2->CR2&=~ADC_CR2_ADON;
 		  notShutDownRPi_GPIO_Port->BSRR|= notShutDownRPi_Pin; 			//Reset NotShutdown to 1.
 		  wakeUpRPi_GPIO_Port->BSRR |= wakeUpRPi_Pin;					//Set wakeUp to 1
 		  osDelay(1000);
 		  wakeUpRPi_GPIO_Port->BSRR |= (wakeUpRPi_Pin << 15);			//Reset wakeUp to 0
-		  ADC2->HTR = 4095;
+		  ADC2->HTR = 4095;												//Restore defaults for Analog WatchDog
 		  ADC2->LTR = 3000;
-//		  AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG; //Restore AWD defaults
-//		  AnalogWDGConfig.HighThreshold = 4095;
-//		  AnalogWDGConfig.LowThreshold = 3000;
-//		  AnalogWDGConfig.Channel = ADC_CHANNEL_12;
-//		  AnalogWDGConfig.ITMode = ENABLE;
-//		  if (HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig) != HAL_OK)
-//		  {
-//			  Error_Handler();
-//		  }
 	  }
-	  else
+	  else if (adcdata<ADC2->LTR)											//If voltage low
 	  {
 		  notShutDownRPi_GPIO_Port->BSRR |= (notShutDownRPi_Pin<<15) ;		//Call shutdown RPi
-		  ADC2->CR2&=~ADC_CR2_ADON;										//Stop ADC to reconfigure
-		  ADC2->HTR = ADC2->LTR;
-		  ADC2->LTR = ADC2->LTR*0.7;
-//		  AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
-//		  AnalogWDGConfig.HighThreshold = ADC2->LTR;						//Move down window
-//		  AnalogWDGConfig.LowThreshold = ADC2->LTR*0.7;
-//		  AnalogWDGConfig.Channel = ADC_CHANNEL_12;
-//		  AnalogWDGConfig.ITMode = ENABLE;
-//		  if (HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig) != HAL_OK)
-//		  {
-//		  	Error_Handler();
-//		  }
+		  if (ADC2->LTR>500){												//Shift down AWD window
+			  ADC2->HTR = ADC2->LTR;
+			  ADC2->LTR = ADC2->LTR-500;
+		  }
+
 	  }
-	  	  ADC2->CR2|=ADC_CR2_ADON;
+	  ADC2->CR1|=ADC_CR1_AWDEN;											//Enable AWD. (was disabled in callback)
   }
   /* USER CODE END startUVLOTask */
 }
