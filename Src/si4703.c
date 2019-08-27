@@ -6,6 +6,7 @@
  *      E-Mail: msin87@yandex.ru
  */
 #include "si4703.h"
+#include "i2c.h"
 #include "cmsis_os.h"
 #define Si4702_nReset_Pin GPIO_PIN_6
 #define Si4702_nReset_GPIO_Port GPIOC
@@ -76,10 +77,12 @@
 #define Si4703_SEEK_DOWN                 1 // Seek down
 #define Si4703_WRAP_ON                   0 // Wrap around band limit enabled (default)
 #define Si4703_WRAP_OFF                  1 // Wrap around band limit disabled
+#define TOTAL_REGS 16
+#define I2C_PORT &hi2c1
 extern I2C_HandleTypeDef hi2c1;
-void Error() {
+uint16_t Si4703_REGs[TOTAL_REGS];
+void Error(void);
 
-};
 void Si4703_I2C_Init(void) {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
 	HAL_I2C_DeInit(&hi2c1);									//turn off I2C1
@@ -115,6 +118,73 @@ void Si4703_I2C_Init(void) {
 	}
 }
 
-void Si4703_Read (void) {
 
+void Si4703_Read(uint16_t* _Si4703_REGs) {
+	uint8_t i;
+	uint8_t buffer[32]; // 16 of 16-bit registers
+
+	I2C_AcknowledgeConfig(I2C_PORT,ENABLE); // Enable I2C acknowledge
+	I2C_GenerateSTART(I2C_PORT,ENABLE); // Send START condition
+	while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_MODE_SELECT))
+	{
+		osDelay(1); // Wait for EV5
+	}
+	I2C_Send7bitAddress(I2C_PORT,Si4703_ADDR,I2C_Direction_Receiver); // Send slave address for READ
+	while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
+	{
+		osDelay(1); // Wait for EV6
+	}
+	// Si4703 read start from r0Ah register
+	for (i = 0x14; ; i++) {					//20
+		if (i == 0x20) i = 0x00;			//32
+		while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_BYTE_RECEIVED))
+		{
+			osDelay(1); // Wait for EV7 (Byte received from slave)
+		}
+		buffer[i] = I2C_ReceiveData(I2C_PORT); // Receive byte
+		if (i == 0x12) break;
+	}
+	I2C_AcknowledgeConfig(I2C_PORT,DISABLE); // Disable I2C acknowledgment
+	I2C_GenerateSTOP(I2C_PORT,ENABLE); // Send STOP condition
+	while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_BYTE_RECEIVED))
+		{
+			osDelay(1); // Wait for EV7 (Byte received from slave)
+		}
+	buffer[i++] = I2C_ReceiveData(I2C_PORT); // Receive last byte
+
+	for (i = 0; i < TOTAL_REGS; i++) {
+		_Si4703_REGs[i] = (buffer[i<<1] << 8) | buffer[(i<<1)+1];
+	}
 }
+void Si4703_Write(void) {
+	uint8_t i;
+
+	I2C_AcknowledgeConfig(I2C_PORT,ENABLE); // Enable I2C acknowledge
+	I2C_GenerateSTART(I2C_PORT,ENABLE); // Send START condition
+	while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_MODE_SELECT))
+		{
+			osDelay(1); // Wait for EV5
+		}
+	I2C_Send7bitAddress(I2C_PORT,Si4703_ADDR,I2C_Direction_Transmitter); // Send slave address
+	while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
+		{
+			osDelay(1); // Wait for EV6
+		}
+	for (i = 2; i < 8; i++) {
+		I2C_SendData(I2C_PORT,Si4703_REGs[i] >> 8); // MSB
+		while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_BYTE_TRANSMITTED))
+			{
+				osDelay(1); // Wait for EV8
+			}
+		I2C_SendData(I2C_PORT,Si4703_REGs[i] & 0x00ff); // LSB
+		while (!I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_BYTE_TRANSMITTED))
+		{
+				osDelay(1); // Wait for EV8
+		}
+	}
+	I2C_AcknowledgeConfig(I2C_PORT,DISABLE); // Disable I2C acknowledgment
+	I2C_GenerateSTOP(I2C_PORT,ENABLE); // Send STOP condition
+}
+void Error(void) {
+
+};
