@@ -25,4 +25,5 @@ void I2C_AcknowledgeConfig(I2C_HandleTypeDef* I2Cx, FunctionalState NewState);
 ErrorStatus I2C_CheckEvent(I2C_HandleTypeDef* I2Cx, uint32_t I2C_EVENT);
 void I2C_Send7bitAddress(I2C_HandleTypeDef* I2Cx, uint8_t Address, uint8_t I2C_Direction);
 uint8_t I2C_ReceiveData(I2C_HandleTypeDef* I2Cx);
+void I2C_SendData(I2C_HandleTypeDef* I2Cx, uint8_t Data);
 #endif /* I2C_H_ */

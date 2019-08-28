@@ -28,6 +28,7 @@
 #include "clocklines.h"
 #include "currentsensors.h"
 #include "uartcmd.h"
+#include "si4703.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,8 @@ CRC_HandleTypeDef hcrc;
 DAC_HandleTypeDef hdac;
 
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
+DMA_HandleTypeDef hdma_i2c1_tx;
 
 SPI_HandleTypeDef hspi1;
 
@@ -78,6 +81,7 @@ osThreadId linesControlHandle;
 osThreadId lineSensorTaskHandle;
 osThreadId uartTaskHandle;
 osThreadId uvloTaskHandle;
+osThreadId si4703_TaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -101,6 +105,7 @@ void StartLinesControl(void const * argument);
 void StartLineSensorTask(void const * argument);
 void StartUartTask(void const * argument);
 void startUVLOTask(void const * argument);
+void StartSi4703_Task(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -140,6 +145,19 @@ void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc)
 		xSemaphoreGiveFromISR(uvloSemaphoreHandle, &xHigherPriorityTaskWoken);
 	}
 
+}
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c){
+	uint8_t test3;
+	test3++;
+
+}
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c){
+	static uint8_t test;
+	test++;
+}
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c){
+	static uint8_t test2;
+		test2++;
 }
 /* USER CODE END 0 */
 
@@ -225,8 +243,12 @@ int main(void)
   uartTaskHandle = osThreadCreate(osThread(uartTask), NULL);
 
   /* definition and creation of uvloTask */
-  osThreadDef(uvloTask, startUVLOTask, osPriorityNormal, 0, 256);
+  osThreadDef(uvloTask, startUVLOTask, osPriorityNormal, 0, 128);
   uvloTaskHandle = osThreadCreate(osThread(uvloTask), NULL);
+
+  /* definition and creation of si4703_Task */
+  osThreadDef(si4703_Task, StartSi4703_Task, osPriorityNormal, 0, 128);
+  si4703_TaskHandle = osThreadCreate(osThread(si4703_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -656,9 +678,9 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.OwnAddress1 = 1;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -669,7 +691,7 @@ static void MX_I2C1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN I2C1_Init 2 */
-
+  hi2c1.Instance->CR2 |= I2C_CR2_LAST;
   /* USER CODE END I2C1_Init 2 */
 
 }
@@ -844,8 +866,15 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -868,7 +897,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-
+  Si4703_I2C_Init();
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, OUT2_pos_Pin|OUT3_pos_Pin|OUT4_pos_Pin|OUT5_pos_Pin 
                           |OUT6_pos_Pin|OUT7_pos_Pin|OUT8_pos_Pin|OUT9_pos_Pin 
@@ -881,10 +910,10 @@ static void MX_GPIO_Init(void)
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_nSen_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(Si4702_nSen_GPIO_Port, Si4702_nSen_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, wakeUpRPi_Pin|notShutDownRPi_Pin, GPIO_PIN_RESET);
@@ -941,6 +970,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartLinesControl */
 void StartLinesControl(void const * argument)
 {
+    
     
     
     
@@ -1049,8 +1079,8 @@ void startUVLOTask(void const * argument)
 {
   /* USER CODE BEGIN startUVLOTask */
 
-	HAL_ADC_Start(&hadc2);
-	HAL_TIM_Base_Start(&htim8);
+	//HAL_ADC_Start(&hadc2);
+	//HAL_TIM_Base_Start(&htim8);
 	static float adcdata=0;
   /* Infinite loop */
   for(;;)
@@ -1083,6 +1113,29 @@ void startUVLOTask(void const * argument)
 	  ADC2->CR1|=ADC_CR1_AWDEN;											//Enable AWD. (was disabled in callback)
   }
   /* USER CODE END startUVLOTask */
+}
+
+/* USER CODE BEGIN Header_StartSi4703_Task */
+/**
+* @brief Function implementing the si4703_Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSi4703_Task */
+void StartSi4703_Task(void const * argument)
+{
+  /* USER CODE BEGIN StartSi4703_Task */
+
+  /* Infinite loop */
+	uint8_t addr = 0;
+	HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
+	HAL_I2C_Master_Receive_DMA(&hi2c1, Si4703_ADDR, (uint8_t*) Si4703_REGs, 8);
+
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartSi4703_Task */
 }
 
 /**
