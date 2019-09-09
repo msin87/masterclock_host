@@ -67,8 +67,6 @@ CRC_HandleTypeDef hcrc;
 DAC_HandleTypeDef hdac;
 
 I2C_HandleTypeDef hi2c1;
-DMA_HandleTypeDef hdma_i2c1_rx;
-DMA_HandleTypeDef hdma_i2c1_tx;
 
 SPI_HandleTypeDef hspi1;
 
@@ -680,7 +678,7 @@ static void MX_I2C1_Init(void)
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 1;
+  hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -866,15 +864,8 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
-  /* DMA1_Stream6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
@@ -910,10 +901,10 @@ static void MX_GPIO_Init(void)
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_nSen_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Si4702_nSen_GPIO_Port, Si4702_nSen_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOC, Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, wakeUpRPi_Pin|notShutDownRPi_Pin, GPIO_PIN_RESET);
@@ -1129,7 +1120,6 @@ void StartSi4703_Task(void const * argument)
   /* Infinite loop */
 	uint8_t addr = 0;
 	HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
-	HAL_I2C_Master_Receive_DMA(&hi2c1, Si4703_ADDR, (uint8_t*) Si4703_REGs, 8);
 
   for(;;)
   {

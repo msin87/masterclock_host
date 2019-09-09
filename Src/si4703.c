@@ -23,10 +23,16 @@ void Si4703_I2C_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(Si4703_SDIO_GPIO_Port, &GPIO_InitStruct);	//init GPIOB
+	GPIO_InitStruct.Pin = Si4703_nReset_Pin;					//config GPIOB for SDIO operation
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(Si4703_nReset_GPIO_Port, &GPIO_InitStruct);
 	Si4703_nReset_GPIO_Port->BSRR|=Si4703_nReset_Pin<<16;	//set nReset to 0 (start Si4703)
 	Si4703_SDIO_GPIO_Port->BSRR|=Si4703_SDIO_Pin<<16;		//set SDIO to 0
-	osDelay(1);
+	osDelay(5);
 	Si4703_nReset_GPIO_Port->BSRR|=Si4703_nReset_Pin;		//set nReset to 1 (start Si4703)
+	osDelay(5);
 //	GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;			//config GPIOB for I2C1
 //	GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
 //	GPIO_InitStruct.Pull = GPIO_PULLUP;
