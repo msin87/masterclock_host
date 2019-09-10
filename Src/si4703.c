@@ -8,7 +8,7 @@
 #include "si4703.h"
 #include "i2c.h"
 #include "cmsis_os.h"
-
+#include "message.h"
 
 extern I2C_HandleTypeDef hi2c1;
 uint16_t Si4703_REGs[Si4703_TOTAL_REGS];
@@ -60,7 +60,12 @@ void Si4703_Read(uint16_t* _Si4703_REGs) {
 	uint8_t i;
 	uint8_t buffer[32]; // 16 of 16-bit registers
 
-
+	I2C_AcknowledgeConfig(I2C_PORT,ENABLE); // Enable I2C acknowledge
+	I2C_GenerateSTART(I2C_PORT,ENABLE); // Send START condition
+	while (I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_MODE_SELECT)==ERROR)
+	{
+		osDelay(1); // Wait for EV5
+	}
 	I2C_Send7bitAddress(I2C_PORT,Si4703_ADDR,I2C_Direction_Receiver); // Send slave address for READ
 	while (I2C_CheckEvent(I2C_PORT,I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED)==ERROR)
 	{
@@ -119,6 +124,7 @@ void Si4703_Write(uint16_t* _Si4703_REGs) {
 	I2C_GenerateSTOP(I2C_PORT,ENABLE); // Send STOP condition
 	osDelay(1);
 }
+
 void Si4703_Init(void) {
 	// Si4703 powerup configuration sequence
 	Si4703_Read(Si4703_REGs);
@@ -137,8 +143,8 @@ void Si4703_Init(void) {
     //Si4703_REGs[Si4703_SYSCONFIG2] |= (1<<Si4703_SC2_BAND1)|(1<<Si4703_SC2_BAND0); // 76-108MHz (Japan wide band)
     Si4703_REGs[Si4703_SYSCONFIG2] |= (1<<Si4703_SC2_SPACE0); // 100kHz spacing (Europe)
 	Si4703_REGs[Si4703_SYSCONFIG2] &= 0xfff0;
-	Si4703_REGs[Si4703_SYSCONFIG2] |= 0x0007; // minimum volume
-	//Si4703_REGs[Si4703_SYSCONFIG2] |= 0x0007; // medium volume
+	//Si4703_REGs[Si4703_SYSCONFIG2] |= 0x0001; // minimum volume
+	Si4703_REGs[Si4703_SYSCONFIG2] |= 0x0007; // medium volume
 	//Si4703_REGs[Si4703_SYSCONFIG2] |= 0x000f; // maximum volume
 	//Si4703_REGs[Si4703_SYSCONFIG3] |= (1<<Si4703_SC3_VOLEXT); // Decrease the volume by 28dB
 	Si4703_Write(Si4703_REGs);
@@ -176,6 +182,12 @@ void Si4703_SetChannel(int32_t Channel) {
 		osDelay(1);
 	}
 }
+void Si4703_Seek_Cancel(void){
+	Si4703_Read(Si4703_REGs);
+	Si4703_REGs[Si4703_POWERCFG] &= ~(1<<Si4703_PWR_SEEK);
+	Si4703_Write(Si4703_REGs);
+	osDelay(1);
+}
 uint32_t Si4703_Seek(uint8_t SeekDirection, uint8_t Wrap) {
 	uint32_t freq;
 	uint32_t _sfbl;
@@ -188,9 +200,9 @@ uint32_t Si4703_Seek(uint8_t SeekDirection, uint8_t Wrap) {
 		Si4703_REGs[Si4703_POWERCFG] &= ~(1<<Si4703_PWR_SKMODE); // Band wrap off
 	}
 	if (SeekDirection) {
-		Si4703_REGs[Si4703_POWERCFG] &= ~(1<<Si4703_PWR_SEEKUP); // Seek up
+		Si4703_REGs[Si4703_POWERCFG] |= (1<<Si4703_PWR_SEEKUP); // Seek up
 	} else {
-		Si4703_REGs[Si4703_POWERCFG] |=  (1<<Si4703_PWR_SEEKUP); // Seek down
+		Si4703_REGs[Si4703_POWERCFG] &= ~(1<<Si4703_PWR_SEEKUP); // Seek down
 	}
 	Si4703_REGs[Si4703_POWERCFG] |= (1<<Si4703_PWR_SEEK); // Set seek start bit
 
@@ -233,6 +245,20 @@ uint32_t Si4703_GetChannel(void) {
 
 	return Channel;
 }
+void Si4703_SendToUART(UART_HandleTypeDef* huart, uint16_t* rdsData){
+	Message message;
+	uint8_t frame[32] =	{ 0 };
+	messageInit(&message);
+	message.cmd=RESP_FM_RDS;
+	message.dataArray[0] = rdsData[12];
+	message.dataArray[1] = rdsData[13];
+	message.dataArray[2] = rdsData[14];
+	message.dataArray[3] = rdsData[15];
+	messageToFrame(&message, frame);
+	HAL_UART_Transmit(huart, &frame[4], 8, 100);
+}
 void Error(void) {
+	while (1){
 
+	}
 };

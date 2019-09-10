@@ -9,6 +9,7 @@
 #include "message.h"
 #include "clocklines.h"
 #include "relay.h"
+#include "si4703.h"
 void uartCmdParse(uint8_t* frame)
 {
 	Message message;
@@ -44,6 +45,24 @@ void uartCmdParse(uint8_t* frame)
 			break;
 		case CMD_RELAY_SET:
 			setRelay(message.idArray,message.dataArray);
+			break;
+		case CMD_FM_SET_FREQ:
+			Si4703_SetChannel(message.dataArray[0]);
+			break;
+		case CMD_FM_SEEK:
+			switch (message.dataArray[0])
+			{
+			case 0x00:
+				Si4703_Seek_Cancel();
+				break;
+			case 0x01:
+				Si4703_SetChannel(875);
+				Si4703_Seek(Si4703_SEEK_UP, Si4703_WRAP_OFF);
+				break;
+			case 0x02:
+				Si4703_Seek(Si4703_SEEK_UP, Si4703_WRAP_OFF);
+				break;
+			}
 			break;
 		default:
 			break;

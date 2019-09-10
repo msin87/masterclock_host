@@ -77,8 +77,8 @@
 #define Si4703_RSSI_RDSS                11 // RDS sync (0 = not synchronized; 1 = decoder synchronized)
 #define Si4703_RSSI_ST                   8 // Stereo indicator (0 = mono; 1 = stereo)
 /* Some additional constants */
-#define Si4703_SEEK_UP                   0 // Seek up (default)
-#define Si4703_SEEK_DOWN                 1 // Seek down
+#define Si4703_SEEK_UP                   1 // Seek up (default)
+#define Si4703_SEEK_DOWN                 0 // Seek down
 #define Si4703_WRAP_ON                   0 // Wrap around band limit enabled (default)
 #define Si4703_WRAP_OFF                  1 // Wrap around band limit disabled
 #define Si4703_TOTAL_REGS 16
@@ -89,6 +89,8 @@ void Si4703_Read(uint16_t* _Si4703_REGs);
 void Si4703_SetChannel(int32_t Channel);
 uint32_t Si4703_Seek(uint8_t SeekDirection, uint8_t Wrap);
 uint32_t Si4703_GetChannel(void);
+void Si4703_SendToUART(UART_HandleTypeDef* huart, uint16_t* rdsData);
+void Si4703_Seek_Cancel(void);
 
 uint16_t Si4703_REGs[Si4703_TOTAL_REGS];
 #endif /* SI4703_H_ */

@@ -39,6 +39,7 @@ void messageInit(Message* message)
 	}
 
 }
+
 void messageToFrame(Message* message, uint8_t* frame)
 {
 	uint32_t crc32;

@@ -10,9 +10,14 @@
 #define CMD_PULSE_WIDTH 	0x0006
 #define CMD_PULSE_POL	 	0x0007
 #define CMD_RELAY_SET	 	0x0008
+#define CMD_FM_POWER		0x0F00
+#define CMD_FM_SET_FREQ		0x0F01
+#define CMD_FM_SEEK			0x0F02
 #define RESP_CNT			0x0001
 #define RESP_ADC_LINES		0x0002
 #define RESP_LINES_POL		0x0007
+#define RESP_FM_RDS			0x0F00
+#define RESP_FM_TUNE_STATUS 0x0F01
 typedef struct
 {
 	uint16_t cmd;

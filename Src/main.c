@@ -42,6 +42,8 @@ extern uint8_t CLOCKLINES_TOTAL;
 SemaphoreHandle_t uartSemaphoreHandle;
 SemaphoreHandle_t lineSensorSemaphoreHandle;
 SemaphoreHandle_t uvloSemaphoreHandle;
+SemaphoreHandle_t Si4703SemaphoreHandle;
+portBASE_TYPE xHigherPriorityTaskWoken;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -136,26 +138,18 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 }
 void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc)
 {
-	static portBASE_TYPE xHigherPriorityTaskWoken;
 	if (hadc->Instance==ADC2){
 		ADC2->CR1&=~ADC_CR1_AWDEN;												//disable AWD
-		xHigherPriorityTaskWoken = pdFALSE;
 		xSemaphoreGiveFromISR(uvloSemaphoreHandle, &xHigherPriorityTaskWoken);
 	}
 
 }
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c){
-	uint8_t test3;
-	test3++;
-
-}
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	static uint8_t test;
-	test++;
-}
-void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c){
-	static uint8_t test2;
-		test2++;
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	if(GPIO_Pin==Si4703_GPIO2_Pin)
+	{
+		HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
+		xSemaphoreGiveFromISR(Si4703SemaphoreHandle, &xHigherPriorityTaskWoken);
+	}
 }
 /* USER CODE END 0 */
 
@@ -214,6 +208,8 @@ int main(void)
   uartSemaphoreHandle = xSemaphoreCreateBinary();
   lineSensorSemaphoreHandle = xSemaphoreCreateBinary();
   uvloSemaphoreHandle = xSemaphoreCreateBinary();
+  Si4703SemaphoreHandle = xSemaphoreCreateBinary();
+  xHigherPriorityTaskWoken = pdFALSE;
 	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -901,10 +897,10 @@ static void MX_GPIO_Init(void)
                           |OUT4_neg_Pin|OUT5_neg_Pin|OUT6_neg_Pin|OUT7_neg_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Si4702_nReset_Pin|Si4702_nSen_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOC, Si4703_nReset_Pin|Si4703_nSen_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Si4702_GPIO1_Pin|Si4702_GPIO2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(Si4703_GPIO1_GPIO_Port, Si4703_GPIO1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, wakeUpRPi_Pin|notShutDownRPi_Pin, GPIO_PIN_RESET);
@@ -933,12 +929,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Si4702_nReset_Pin Si4702_nSen_Pin Si4702_GPIO1_Pin Si4702_GPIO2_Pin */
-  GPIO_InitStruct.Pin = Si4702_nReset_Pin|Si4702_nSen_Pin|Si4702_GPIO1_Pin|Si4702_GPIO2_Pin;
+  /*Configure GPIO pins : Si4703_nReset_Pin Si4703_nSen_Pin Si4703_GPIO1_Pin */
+  GPIO_InitStruct.Pin = Si4703_nReset_Pin|Si4703_nSen_Pin|Si4703_GPIO1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Si4703_GPIO2_Pin */
+  GPIO_InitStruct.Pin = Si4703_GPIO2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Si4703_GPIO2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : wakeUpRPi_Pin notShutDownRPi_Pin */
   GPIO_InitStruct.Pin = wakeUpRPi_Pin|notShutDownRPi_Pin;
@@ -946,6 +948,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }
 
@@ -1118,12 +1124,17 @@ void StartSi4703_Task(void const * argument)
   /* USER CODE BEGIN StartSi4703_Task */
 
   /* Infinite loop */
-	uint8_t addr = 0;
-	HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
-
+	//HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
+	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
+	Si4703_Init();
+	Si4703_SetChannel(948);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   for(;;)
   {
-    osDelay(1);
+	  xSemaphoreTake(Si4703SemaphoreHandle,portMAX_DELAY);
+	  Si4703_Read(Si4703_REGs);
+	  Si4703_SendToUART(&huart4, Si4703_REGs);
+	  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   }
   /* USER CODE END StartSi4703_Task */
 }

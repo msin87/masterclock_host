@@ -191,6 +191,46 @@ Set polarity of previous pulse.
 *Explanations*:
 Set relay state.
 
+### 0x0F00 FM: power
+
+*Frame format*:
+
+|  0..1  |   2   |   3   |
+| :----: | :---: | :---: |
+| 0x0F00 | POWER | POWER |
+
+*Explanations*:
+Power OFF = 0x0000, Power ON = 0x0001
+
+### 0x0F01 FM: set frequency
+
+*Frame format*:
+
+|  0..1  |    2     |    3     |    4    |    5    |
+| :----: | :------: | :------: | :-----: | :-----: |
+| 0x0F01 | reserved | reserved | FREQ[1] | FREQ[0] |
+
+*Explanations*:
+FREQ 985 = 98.5 FM, 1017 = 101.7 FM
+
+### 0x0F02 FM: seek
+
+*Frame format*:
+
+|  0..1  |    2     |    3     |    4    |    5    |
+| :----: | :------: | :------: | :-----: | :-----: |
+| 0x0F02 | reserved | reserved | SEEK[1] | SEEK[0] |
+
+*Explanations*:
+
+|  SEEK  | description |
+| :----: | :---------: |
+| 0x0000 | cancel seek |
+| 0x0001 | start seek  |
+| 0x0002 | resume seek |
+
+
+
 ## Responses 
 
 *Frame formats are given without CRC32 bytes.*
@@ -230,3 +270,32 @@ ID<sub>12</sub> corresponds to the total current consumption received from the t
 
 *Explanations*: 
 Returns the polarity of the rising edge of the pulse for lines. POL: 0x0000 = '-', 0x0001 = '+'. 
+
+### 0x0F00 FM: RDS data
+
+*Frame format*: 
+
+|  0..1  |    2     |    3     |         4          |         5          |         6          |         7          |         8          |         9          |         10         |         11         |   ...    |
+| :----: | :------: | :------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :------: |
+| 0x0F00 | reserved | reserved | RDS<sub>A</sub>[1] | RDS<sub>A</sub>[0] | RDS<sub>B</sub>[1] | RDS<sub>B</sub>[0] | RDS<sub>C</sub>[1] | RDS<sub>C</sub>[0] | RDS<sub>D</sub>[1] | RDS<sub>D</sub>[0] | reserved |
+
+*Explanations*: 
+Returns the RDS data from FM tuner
+
+### 0x0F01 FM: tune status
+
+*Frame format*: 
+
+|  0..1  |   2    |   3    |    4    |    5    |    6    |    7    |   ...    |
+| :----: | :----: | :----: | :-----: | :-----: | :-----: | :-----: | :------: |
+| 0x0F01 | STATUS | STATUS | FREQ[1] | FREQ[0] | RSSI[1] | RSSI[0] | reserved |
+
+*Explanations*: 
+Returns the tune status
+
+| STATUS |    description     |
+| :----: | :----------------: |
+| 0x0000 |    tune failed     |
+| 0x0001 |    tune success    |
+| 0x0002 | band limit reached |
+
