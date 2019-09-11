@@ -951,7 +951,7 @@ static void MX_GPIO_Init(void)
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  //HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }
 
@@ -1128,12 +1128,21 @@ void StartSi4703_Task(void const * argument)
 	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 	Si4703_Init();
 	Si4703_SetChannel(948);
+	EXTI->PR|=EXTI_PR_PR9;
 	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   for(;;)
   {
 	  xSemaphoreTake(Si4703SemaphoreHandle,portMAX_DELAY);
 	  Si4703_Read(Si4703_REGs);
-	  Si4703_SendToUART(&huart4, Si4703_REGs);
+	  switch(Si4703_RDS_Decode(&Si4703_REGs[12]))
+	  {
+		  case RDS_PS_UPDATED:
+		  break;
+		  case RDS_RT_UPDATED:
+		  break;
+		  case RDS_TIME_DECODED:
+		  break;
+	  }
 	  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   }
   /* USER CODE END StartSi4703_Task */

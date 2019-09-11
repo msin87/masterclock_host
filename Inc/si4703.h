@@ -83,14 +83,36 @@
 #define Si4703_WRAP_OFF                  1 // Wrap around band limit disabled
 #define Si4703_TOTAL_REGS 16
 #define I2C_PORT &hi2c1
+
+#define RDS_NO_UPDATE 		0
+#define RDS_RT_UPDATED 		1
+#define RDS_TIME_DECODED 	2
+#define RDS_PS_UPDATED 		3
+#define RDS_RT_COMPLETE 	4
+
+typedef struct {
+	char program_service_name[8];
+	char radiotextA[64];
+	char radiotextB[32];
+	uint8_t radiotext_AB_flag;
+	uint8_t month;
+	uint8_t day;
+	uint8_t hours;
+	uint8_t minutes;
+	uint8_t RT_lengthA;
+	uint8_t RT_lengthB;
+	uint16_t year;
+} RDS_Struct;
 void Si4703_I2C_Init(void);
 void Si4703_Init(void);
 void Si4703_Read(uint16_t* _Si4703_REGs);
 void Si4703_SetChannel(int32_t Channel);
 uint32_t Si4703_Seek(uint8_t SeekDirection, uint8_t Wrap);
 uint32_t Si4703_GetChannel(void);
-void Si4703_SendToUART(UART_HandleTypeDef* huart, uint16_t* rdsData);
+void Si4703_SendRDSToUART(UART_HandleTypeDef* huart, uint16_t* rdsData);
+void Si4703_RDS_Reset(void);
+uint8_t Si4703_RDS_Decode(uint16_t* group);
 void Si4703_Seek_Cancel(void);
-
 uint16_t Si4703_REGs[Si4703_TOTAL_REGS];
+RDS_Struct rdsStruct;
 #endif /* SI4703_H_ */

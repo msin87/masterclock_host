@@ -39,7 +39,24 @@ void messageInit(Message* message)
 	}
 
 }
-
+void rdsMessageToFrame (Message* message, uint8_t* frame)
+{
+	uint32_t crc32;
+	frame[0] = message->cmd / 0x0100;
+	frame[1] = message->cmd % 0x0100;
+	frame[2] = message->idArray[0];
+	frame[3] = message->idArray[1];
+	for (uint8_t i = 0; i < 12; i++)
+	{
+		frame[4 + i * 2] = message->dataArray[i] / 0x100;
+		frame[4 + i * 2 + 1] = message->dataArray[i] % 0x100;
+	}
+	crc32 = crc32_zlib((uint32_t*) frame, 28);
+	frame[28] = (crc32 & 0xFF000000) >> 24;
+	frame[29] = (crc32 & 0x00FF0000) >> 16;
+	frame[30] = (crc32 & 0x0000FF00) >> 8;
+	frame[31] = (crc32 & 0x000000FF);
+}
 void messageToFrame(Message* message, uint8_t* frame)
 {
 	uint32_t crc32;

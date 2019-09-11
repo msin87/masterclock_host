@@ -26,6 +26,7 @@ typedef struct
 
 } Message;
 void messageToFrame(Message* message, uint8_t* frame);
+void rdsMessageToFrame (Message* message, uint8_t* frame);
 void frameToMessage(uint8_t* frame, Message* message);
 void getFrameData16(uint8_t* frame, uint16_t* data);
 void getFrameData8(uint8_t* frame, uint8_t* data);

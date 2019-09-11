@@ -9,15 +9,16 @@
 #include "i2c.h"
 #include "cmsis_os.h"
 #include "message.h"
+#include <string.h>
+#define GROUP_B 1
 
 extern I2C_HandleTypeDef hi2c1;
 uint16_t Si4703_REGs[Si4703_TOTAL_REGS];
+RDS_Struct rdsStruct;
 void Error(void);
 
 void Si4703_I2C_Init(void) {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
-//	HAL_I2C_DeInit(&hi2c1);									//turn off I2C1
-//	HAL_GPIO_DeInit(GPIOB, Si4703_SDIO_Pin);				//deinit GPIO for
 	GPIO_InitStruct.Pin = Si4703_SDIO_Pin;					//config GPIOB for SDIO operation
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -33,26 +34,6 @@ void Si4703_I2C_Init(void) {
 	osDelay(5);
 	Si4703_nReset_GPIO_Port->BSRR|=Si4703_nReset_Pin;		//set nReset to 1 (start Si4703)
 	osDelay(5);
-//	GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;			//config GPIOB for I2C1
-//	GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-//	GPIO_InitStruct.Pull = GPIO_PULLUP;
-//	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-//	GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-//	//HAL_GPIO_DeInit(GPIOB, Si4703_SDIO_Pin);				//deinit GPIO SDIO
-//	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);					//init GPIOB 8,9 as I2C1
-//	hi2c1.Instance = I2C1;									//config I2C1
-//	hi2c1.Init.ClockSpeed = 400000;
-//	hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-//	hi2c1.Init.OwnAddress1 = 1;
-//	hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-//	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-//	hi2c1.Init.OwnAddress2 = 0;
-//	hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-//	hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-//	if (HAL_I2C_Init(&hi2c1) != HAL_OK)						//init I2C1
-//	{
-//	  Error();
-//	}
 }
 
 
@@ -245,15 +226,137 @@ uint32_t Si4703_GetChannel(void) {
 
 	return Channel;
 }
-void Si4703_SendToUART(UART_HandleTypeDef* huart, uint16_t* rdsData){
+void Si4703_RDS_Reset(void){
+	rdsStruct.day=0;
+	rdsStruct.hours=0;
+	rdsStruct.minutes=0;
+	rdsStruct.month=0;
+	rdsStruct.radiotext_AB_flag=0;
+	rdsStruct.year=0;
+	memset(rdsStruct.radiotextA, 0x00, sizeof(rdsStruct.radiotextA));
+	memset(rdsStruct.radiotextB, 0x00, sizeof(rdsStruct.radiotextB));
+	memset(rdsStruct.program_service_name, 0x00, sizeof(rdsStruct.program_service_name));
+}
+
+uint8_t Si4703_RDS_Decode(uint16_t* group){
+	uint8_t group_type = (uint8_t)((group[1] >> 12) & 0xf);
+	uint8_t ab = (group[1] >> 11 ) & 0x1;	//a=0,b=1
+	uint8_t returnCode=RDS_NO_UPDATE;
+	char newSymbol[4]={0};
+	uint8_t text_segment_address_code;
+	switch (group_type)
+	{
+	case 0:
+
+		newSymbol[0]=(group[3] >> 8) & 0xff;
+		newSymbol[1]= group[3]       & 0xff;
+		uint8_t segment_address =  group[1] & 0x03;
+		if ((rdsStruct.program_service_name[segment_address * 2]!=newSymbol[0])||(rdsStruct.program_service_name[segment_address * 2 + 1] != newSymbol[1]))
+		{
+			returnCode=RDS_PS_UPDATED;
+		}
+		rdsStruct.program_service_name[segment_address * 2]     = newSymbol[0];
+		rdsStruct.program_service_name[segment_address * 2 + 1] = newSymbol[1];
+
+		break;
+	case 2:
+		text_segment_address_code = group[1] & 0x0f;
+		if(rdsStruct.radiotext_AB_flag != ((group[1] >> 4) & 0x01))
+		{
+			memset(rdsStruct.radiotextA, 0x00, sizeof(rdsStruct.radiotextA));
+			memset(rdsStruct.radiotextB, 0x00, sizeof(rdsStruct.radiotextB));
+		}
+		rdsStruct.radiotext_AB_flag = (group[1] >> 4) & 0x01;
+		if (ab==GROUP_B)
+		{
+			newSymbol[0] = (group[3] >> 8) & 0xff;
+			newSymbol[1] =  group[3]       & 0xff;
+			for (uint8_t i=0; i<2; i++)
+			{
+				if (rdsStruct.radiotextA[text_segment_address_code *4 + i] != newSymbol[i]) //check if the character has changed
+					returnCode=RDS_RT_UPDATED;
+				rdsStruct.radiotextB[text_segment_address_code * 2 + i] = newSymbol[i];
+				if (newSymbol[i]==0x0D) 										//carriage return
+				rdsStruct.RT_lengthB = text_segment_address_code*4+i;			//store text length
+			}
+			for (uint8_t i=0; i<rdsStruct.RT_lengthB; i++)						//checking for zeros in rt array (check if the text is complete)
+			{
+				if (rdsStruct.radiotextB[i]==0x00) continue;					//if text not completed do next step of cycle
+				returnCode = RDS_RT_COMPLETE;									//if text completed say RDS_RT_COMPLETE
+				break;															//exit from for() cycle
+			}
+
+		}
+		else
+		{
+			newSymbol[0] = (group[2] >> 8) & 0xff;
+			newSymbol[1] =  group[2]       & 0xff;
+			newSymbol[2] = (group[3] >> 8) & 0xff;
+			newSymbol[3] =  group[3]       & 0xff;
+			for (uint8_t i=0; i<4; i++)
+			{
+				if (rdsStruct.radiotextA[text_segment_address_code *4 + i] != newSymbol[i]) //check if the character has changed
+					returnCode=RDS_RT_UPDATED;
+				rdsStruct.radiotextA[text_segment_address_code * 4 + i] = newSymbol[i];
+				if (returnCode != RDS_RT_COMPLETE)
+				{
+					for (uint8_t j=0; j<sizeof(rdsStruct.radiotextA); j++)				//checking for zeros in rt array (check if the text is complete)
+					{
+						if (rdsStruct.radiotextA[j]==0x00) break;				//if text not completed do exit from cycle
+						// Two cases when the text is considered complete separated for ease of reading code
+						if ((j==sizeof(rdsStruct.radiotextA)-1)&&returnCode==RDS_RT_UPDATED)
+						{
+							returnCode = RDS_RT_COMPLETE;						//if text completed say RDS_RT_COMPLETE
+							rdsStruct.RT_lengthA=0;
+							break;
+						}
+						if (rdsStruct.radiotextA[j]==0x0D && returnCode==RDS_RT_UPDATED)
+						{
+							returnCode = RDS_RT_COMPLETE;						//if text completed say RDS_RT_COMPLETE
+							rdsStruct.RT_lengthA=0;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+
+		break;
+	case 4:
+		if (ab==GROUP_B){
+			break;
+		}
+		returnCode=RDS_TIME_DECODED;
+		rdsStruct.hours   = ((group[2] & 0x1) << 4) | ((group[3] >> 12) & 0x0f);
+		rdsStruct.minutes =  (group[3] >> 6) & 0x3f;
+		double local_time_offset = .5 * (group[3] & 0x1f);
+
+		if((group[3] >> 5) & 0x1) {
+			local_time_offset *= -1;
+		}
+		double modified_julian_date = ((group[1] & 0x03) << 15) | ((group[2] >> 1) & 0x7fff);
+
+		rdsStruct.year  = (uint16_t)((modified_julian_date - 15078.2) / 365.25);
+		rdsStruct.month = (uint8_t)((modified_julian_date - 14956.1 - (int)(rdsStruct.year * 365.25)) / 30.6001);
+		rdsStruct.day   = (uint8_t) (modified_julian_date - 14956 - (int)(rdsStruct.year * 365.25) - (int)(rdsStruct.month * 30.6001));
+		uint8_t K = ((rdsStruct.month == 14) || (rdsStruct.month == 15)) ? 1 : 0;
+		rdsStruct.year += K;
+		rdsStruct.month -= 1 + K * 12;
+		break;
+	}
+
+	return returnCode;
+}
+void Si4703_SendRDSToUART(UART_HandleTypeDef* huart, uint16_t* group){
+
 	Message message;
 	uint8_t frame[32] =	{ 0 };
 	messageInit(&message);
 	message.cmd=RESP_FM_RDS;
-	message.dataArray[0] = rdsData[12];
-	message.dataArray[1] = rdsData[13];
-	message.dataArray[2] = rdsData[14];
-	message.dataArray[3] = rdsData[15];
+	message.idArray[0]=group[0] / 0x100;    //High byte of PI Code
+	message.idArray[1]=group[0] % 0x100;	//Low Byte of PI Code
+
 	messageToFrame(&message, frame);
 	HAL_UART_Transmit(huart, &frame[4], 8, 100);
 }
