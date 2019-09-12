@@ -39,7 +39,7 @@ void messageInit(Message* message)
 	}
 
 }
-void rdsMessageToFrame (Message* message, uint8_t* frame)
+void rdsTextToFrame (Message* message, uint8_t* frame)
 {
 	uint32_t crc32;
 	frame[0] = message->cmd / 0x0100;

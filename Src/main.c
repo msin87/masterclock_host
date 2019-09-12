@@ -1122,7 +1122,7 @@ void startUVLOTask(void const * argument)
 void StartSi4703_Task(void const * argument)
 {
   /* USER CODE BEGIN StartSi4703_Task */
-
+	uint8_t rdsReturnCode=0;
   /* Infinite loop */
 	//HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
 	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
@@ -1134,13 +1134,14 @@ void StartSi4703_Task(void const * argument)
   {
 	  xSemaphoreTake(Si4703SemaphoreHandle,portMAX_DELAY);
 	  Si4703_Read(Si4703_REGs);
-	  switch(Si4703_RDS_Decode(&Si4703_REGs[12]))
+	  rdsReturnCode=Si4703_RDS_Decode(&Si4703_REGs[12]);
+	  switch(rdsReturnCode)
 	  {
-		  case RDS_PS_UPDATED:
-		  break;
-		  case RDS_RT_UPDATED:
+		  case RDS_TEXTA:
+			  Si4703_SendTextToUART(&huart4, &Si4703_REGs[12],RDS_TEXTA);
 		  break;
 		  case RDS_TIME_DECODED:
+			  Si4703_SendTimeToUART(&huart4, &Si4703_REGs[12]);
 		  break;
 	  }
 	  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);

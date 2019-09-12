@@ -271,30 +271,73 @@ ID<sub>12</sub> corresponds to the total current consumption received from the t
 *Explanations*: 
 Returns the polarity of the rising edge of the pulse for lines. POL: 0x0000 = '-', 0x0001 = '+'. 
 
-### 0x0F00 FM: RDS data
+### 0x0F00 FM: TextA 0
 
 *Frame format*: 
 
-|  0..1  |   2   |   3   |   4   |  5   |  6   |  7   |  8   |  9   |  10  |  11  | ...  |
-| :----: | :---: | :---: | :---: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
-| 0x0F00 | PI[1] | PI[0] | GROUP | DATA | DATA | DATA | DATA | DATA | DATA | ...  | ...  |
+|  0..1  |   2   |   3   |  4   | ...  |  27  |
+| :----: | :---: | :---: | :--: | :--: | :--: |
+| 0x0F00 | PI[1] | PI[0] | CHAR | ...  | CHAR |
 
 *Explanations*: 
-Returns the RDS data from FM tuner
+Returns the RDS text A part 0
 
-|  0..1  |   2   |   3   |   4   |     5      |   6   |   7   |
-| :----: | :---: | :---: | :---: | :--------: | :---: | :---: |
-| 0x0F00 | PI[1] | PI[0] | 0A,0B | DI Segment | PS[1] | PS[0] |
+### 0x0F01 FM: TextA 1
 
-|  0..1  |   2   |   3   |   4   |       5       |          6           |         7         |         8         |         9         |        10         |
-| :----: | :---: | :---: | :---: | :-----------: | :------------------: | :---------------: | :---------------: | :---------------: | :---------------: |
-| 0x0F00 | PI[1] | PI[0] | 2A,2B | Text A/B flag | Text segment address | RT<sub>C</sub>[1] | RT<sub>C</sub>[0] | RT<sub>D</sub>[1] | RT<sub>D</sub>[0] |
+*Frame format*: 
 
-|  0..1  |   2   |   3   |  4   |      5      |       6        |  7   |   8    |     9     |
-| :----: | :---: | :---: | :--: | :---------: | :------------: | :--: | :----: | :-------: |
-| 0x0F00 | PI[1] | PI[0] |  4A  | MJD[bit 16] | MJD[bits 0-15] | Hour | Minute | Time Zone |
+|  0..1  |    2    |    3    |  4   | ...  |  27  |
+| :----: | :-----: | :-----: | :--: | :--: | :--: |
+| 0x0F01 | FREQ[1] | FREQ[0] | CHAR | ...  | CHAR |
 
-### 0x0F01 FM: tune status
+*Explanations*: 
+Returns the RDS text A part 1
+
+### 0x0F02 FM: TextA 2
+
+*Frame format*: 
+
+|  0..1  |    2    |    3    |  4   | ...  |  27  |
+| :----: | :-----: | :-----: | :--: | :--: | :--: |
+| 0x0F02 | FREQ[1] | FREQ[0] | CHAR | ...  | CHAR |
+
+*Explanations*: 
+Returns the RDS text A part 2
+
+### 0x0F10 FM: TextB 0
+
+*Frame format*: 
+
+|  0..1  |   2   |   3   |  4   | ...  |  27  |
+| :----: | :---: | :---: | :--: | :--: | :--: |
+| 0x0F10 | PI[1] | PI[0] | CHAR | ...  | CHAR |
+
+*Explanations*: 
+Returns the RDS text B part 0
+
+### 0x0F11 FM: TextB 1
+
+*Frame format*: 
+
+|  0..1  |    2    |    3    |  4   | ...  |  27  |
+| :----: | :-----: | :-----: | :--: | :--: | :--: |
+| 0x0F11 | FREQ[1] | FREQ[0] | CHAR | ...  | CHAR |
+
+*Explanations*: 
+Returns the RDS text B part 1
+
+### 0x0F03 FM: Time
+
+*Frame format*: 
+
+|  0..1  |   2   |   3   |    4    |    5    |    6    |    7    |    8     |    9     |   10   |   11   |    12    |    13    |     14     |     15     |     16      |     17      |
+| :----: | :---: | :---: | :-----: | :-----: | :-----: | :-----: | :------: | :------: | :----: | :----: | :------: | :------: | :--------: | :--------: | :---------: | :---------: |
+| 0x0F03 | PI[1] | PI[0] | FREQ[1] | FREQ[0] | YEAR[1] | YEAR[0] | MONTH[1] | MONTH[0] | DAY[1] | DAY[0] | HOURS[1] | HOURS[0] | MINUTES[1] | MINUTES[0] | TIMEZONE[1] | TIMEZONE[0] |
+
+*Explanations*: 
+Returns the RDS time
+
+### 0x0F04 FM: tune status
 
 *Frame format*: 
 

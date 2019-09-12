@@ -84,12 +84,14 @@
 #define Si4703_TOTAL_REGS 16
 #define I2C_PORT &hi2c1
 
-#define RDS_NO_UPDATE 		0
-#define RDS_RT_UPDATED 		1
-#define RDS_TIME_DECODED 	2
-#define RDS_PS_UPDATED 		3
-#define RDS_RT_COMPLETE 	4
-
+#define RDS_NO_UPDATE 			0
+#define RDS_TEXTA		 		1
+#define RDS_TEXTB		 		2
+#define RDS_TIME_DECODED 		3
+#define RDS_TEXT_COMPLETE		4
+#define RDS_TEXT_NOTCOMPLETE	5
+#define RDS_TEXT_UPDATED		6
+#define RDS_TEXT_NOTUPDATED		7
 typedef struct {
 	char program_service_name[8];
 	char radiotextA[64];
@@ -101,6 +103,7 @@ typedef struct {
 	uint8_t minutes;
 	uint8_t RT_lengthA;
 	uint8_t RT_lengthB;
+	int8_t timeZone;
 	uint16_t year;
 } RDS_Struct;
 void Si4703_I2C_Init(void);
@@ -108,8 +111,9 @@ void Si4703_Init(void);
 void Si4703_Read(uint16_t* _Si4703_REGs);
 void Si4703_SetChannel(int32_t Channel);
 uint32_t Si4703_Seek(uint8_t SeekDirection, uint8_t Wrap);
-uint32_t Si4703_GetChannel(void);
-void Si4703_SendRDSToUART(UART_HandleTypeDef* huart, uint16_t* rdsData);
+uint16_t Si4703_GetChannel(void);
+void Si4703_SendTextToUART(UART_HandleTypeDef* huart, uint16_t* rdsData, uint8_t textGroup);
+void Si4703_SendTimeToUART(UART_HandleTypeDef* huart, uint16_t* block);
 void Si4703_RDS_Reset(void);
 uint8_t Si4703_RDS_Decode(uint16_t* group);
 void Si4703_Seek_Cancel(void);
