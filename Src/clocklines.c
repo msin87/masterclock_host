@@ -125,6 +125,10 @@ void sendCountersToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
 		message.idArray[i] = idToSend[i];
 	}
 	messageToFrame(&message, frame);
+	while (HAL_UART_GetState(huart)==HAL_UART_STATE_BUSY_TX)
+	{
+		osDelay(1);
+	}
 	HAL_UART_Transmit(huart, frame, 32, 100);
 }
 void sendPolarityToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
@@ -145,5 +149,9 @@ void sendPolarityToUART(UART_HandleTypeDef* huart, ClockLine* clockLines,
 		message.idArray[i] = idToSend[i];
 	}
 	messageToFrame(&message, frame);
+	while (HAL_UART_GetState(huart)==HAL_UART_STATE_BUSY_TX)
+	{
+		osDelay(1);
+	}
 	HAL_UART_Transmit(huart, frame, 32, 100);
 }

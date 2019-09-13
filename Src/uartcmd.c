@@ -10,6 +10,8 @@
 #include "clocklines.h"
 #include "relay.h"
 #include "si4703.h"
+#include "cmsis_os.h"
+extern volatile SemaphoreHandle_t Si4703MutexHandle;
 void uartCmdParse(uint8_t* frame)
 {
 	Message message;
@@ -47,9 +49,12 @@ void uartCmdParse(uint8_t* frame)
 			setRelay(message.idArray,message.dataArray);
 			break;
 		case CMD_FM_SET_FREQ:
+			xSemaphoreTake(Si4703MutexHandle,portMAX_DELAY);
 			Si4703_SetChannel(message.dataArray[0]);
+			xSemaphoreGive(Si4703MutexHandle);
 			break;
 		case CMD_FM_SEEK:
+			xSemaphoreTake(Si4703MutexHandle,portMAX_DELAY);
 			switch (message.dataArray[0])
 			{
 			case 0x00:
@@ -63,6 +68,7 @@ void uartCmdParse(uint8_t* frame)
 				Si4703_Seek(Si4703_SEEK_UP, Si4703_WRAP_OFF);
 				break;
 			}
+			xSemaphoreGive(Si4703MutexHandle);
 			break;
 		default:
 			break;

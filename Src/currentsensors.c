@@ -9,6 +9,7 @@
 #include "currentsensors.h"
 #include "clocklines.h"
 #include "message.h"
+#include "cmsis_os.h"
 //static const uint8_t linesADCChannels[12] =
 //{
 //0,
@@ -183,6 +184,10 @@ void sendCurrentSensorsToUART(UART_HandleTypeDef* huart, float* data, uint16_t C
 	}
 
 	messageToFrame(&message, frame);
+	while (HAL_UART_GetState(huart)==HAL_UART_STATE_BUSY_TX)
+	{
+		osDelay(1);
+	}
 	HAL_UART_Transmit(huart, frame, 32, 100);
 }
 

@@ -38,6 +38,7 @@ void Si4703_I2C_Init(void) {
 
 
 void Si4703_Read(uint16_t* _Si4703_REGs) {
+
 	uint8_t i;
 	uint8_t buffer[32]; // 16 of 16-bit registers
 

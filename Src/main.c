@@ -39,10 +39,11 @@ extern uint16_t clockLines_pulseWidth;
 extern uint8_t clockLines_isCountersEmpty;
 extern ClockLineCurrentSensor clockLineCurrentSensor;
 extern uint8_t CLOCKLINES_TOTAL;
-SemaphoreHandle_t uartSemaphoreHandle;
-SemaphoreHandle_t lineSensorSemaphoreHandle;
-SemaphoreHandle_t uvloSemaphoreHandle;
-SemaphoreHandle_t Si4703SemaphoreHandle;
+volatile SemaphoreHandle_t uartSemaphoreHandle;
+volatile SemaphoreHandle_t lineSensorSemaphoreHandle;
+volatile SemaphoreHandle_t uvloSemaphoreHandle;
+volatile SemaphoreHandle_t Si4703SemaphoreHandle;
+volatile SemaphoreHandle_t Si4703MutexHandle;
 portBASE_TYPE xHigherPriorityTaskWoken;
 /* USER CODE END PTD */
 
@@ -209,6 +210,7 @@ int main(void)
   lineSensorSemaphoreHandle = xSemaphoreCreateBinary();
   uvloSemaphoreHandle = xSemaphoreCreateBinary();
   Si4703SemaphoreHandle = xSemaphoreCreateBinary();
+  Si4703MutexHandle = xSemaphoreCreateMutex();
   xHigherPriorityTaskWoken = pdFALSE;
 	/* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -672,7 +674,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -1059,6 +1061,10 @@ void StartUartTask(void const * argument)
 		if (xSemaphoreTake(uartSemaphoreHandle,portMAX_DELAY)==pdTRUE)
 		{
 			uartCmdParse(uartDataFrame);
+			if (huart4.Instance->SR&USART_SR_ORE)
+			{
+				volatile uint8_t clear = huart4.Instance->DR;
+			}
 		}
 	}
   /* USER CODE END StartUartTask */
@@ -1127,13 +1133,14 @@ void StartSi4703_Task(void const * argument)
 	//HAL_I2C_Master_Transmit(&hi2c1, Si4703_ADDR, &addr, 0, 500);
 	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 	Si4703_Init();
-	Si4703_SetChannel(948);
 	EXTI->PR|=EXTI_PR_PR9;
 	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   for(;;)
   {
 	  xSemaphoreTake(Si4703SemaphoreHandle,portMAX_DELAY);
+	  xSemaphoreTake(Si4703MutexHandle, portMAX_DELAY);
 	  Si4703_Read(Si4703_REGs);
+	  xSemaphoreGive(Si4703MutexHandle);
 	  rdsReturnCode=Si4703_RDS_Decode(&Si4703_REGs[12]);
 	  switch(rdsReturnCode)
 	  {
